@@ -1,39 +1,94 @@
-/* test_mean.c: Implementation of a testable component.
-
-   This example code is in the Public Domain (or CC0 licensed, at your option.)
-
-   Unless required by applicable law or agreed to in writing, this
-   software is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
-   CONDITIONS OF ANY KIND, either express or implied.
-*/
-
 extern "C"{
-
     #include <limits.h>
     #include "unity.h"
     #include "sdcard.hpp"
+    #include "esp_err.h"
 };
 
-#define countof(x) (sizeof(x)/sizeof(x[0]))
 
-TEST_CASE("Mean of an empty array is zero", "[mean]")
+TEST_CASE("initialisation", "[mcard]")
 {
-    const int values[] = { 0 };
-    // TEST_ASSERT_EQUAL(0, testable_mean(values, 0));
+    TEST_ASSERT_TRUE(sdcard->begin() == ESP_OK);
 }
 
-TEST_CASE("Mean of a test vector", "[mean]")
+TEST_CASE("create a bin file", "[mcard]")
 {
-    const int v[] = {1, 3, 5, 7, 9};
-    // TEST_ASSERT_EQUAL(5, testable_mean(v, countof(v)));
+    uint8_t data[] = {0x01, 0x02, 0x03};
+    TEST_ASSERT_EQUAL(sizeof(data), sdCard->writeBinFile("test.bin", data, sizeof(data)));
 }
 
-/* This test case currently fails, and developer has added a tag to indicate this.
- * For the test runner, "[fails]" string does not carry any special meaning.
- * However it can be used to filter out tests when running.
- */
-TEST_CASE("Another test case which fails", "[mean][fails]")
+TEST_CASE("deleting a no existing file", "[mcard][false]")
 {
-    const int v1[] = {INT_MAX, INT_MAX, INT_MAX, INT_MAX};
-    // TEST_ASSERT_EQUAL(INT_MAX, testable_mean(v1, countof(v1)));
+    const char filename[] = "no_exist.txt";
+    TEST_ASSERT_FALSE(sdCard->deleteFile(filename) == ESP_OK);
 }
+
+TEST_CASE("deleting an existing file", "[mcard][true]")
+{
+    const char filename[] = "test.txt";
+    const char data[] = "data";
+    TEST_ASSERT_EQUAL(sizeof(data), sdCard->writeBinFile(filename, data, sizeof(data)));
+    TEST_ASSERT_TRUE(sdCard->deleteFile(filename) == ESP_OK);
+}
+
+TEST_CASE("rename an existing file", "[mcard][true]")
+{
+    const char filename[] = "test.txt";
+    TEST_ASSERT_EQUAL(sizeof(data), sdCard->writeBinFile(filename, data, sizeof(data)));
+    TEST_ASSERT_TRUE(sdCard->renameFile(filename) == ESP_OK);
+}
+
+TEST_CASE("rename a no existing file", "[mcard][false]")
+{
+    const char filename[] = "no_exist.txt";
+    TEST_ASSERT_FALSE(sdCard->renameFile(filename) != ESP_OK);
+}
+
+TEST_CASE("reading a file", "[mcard][true]")
+{
+    const char filename[] = "test.txt";
+    const uint8_t data[] = {0x01, 0x02, 0x03};
+    uint8_t *buf = NULL;
+    TEST_ASSERT_TRUE_MESSAGE(sizeof(buf) != sdCard->readFile(filename, &buf, sizeof(buf)),
+                        "the file that was read has an unexpected length");
+    TEST_ASSERT_TRUE_MESSAGE(memcpu(data, buf, sizeof(data)),
+                        "the file that was read has an unexpected data");
+}
+
+TEST_CASE("getting file size", "[mcard]")
+{
+    const char filename[] = "test.txt";
+    uint8_t data[] = {0x01, 0x02, 0x03};
+    TEST_ASSERT_EQUAL(sizeof(data), sdCard->writeBinFile(filename, data, sizeof(data)));
+    TEST_ASSERT_EQUAL(sizeof(data), sdCard->getFileSize(filename, data, sizeof(data)));
+}
+
+TEST_CASE("getting the create time", "[mcard]")
+{
+    const char filename[] = "test.txt";
+    const char data[] = "hello world";
+    time_t t;
+    TEST_ASSERT_EQUAL( sdCard->getFileTime)
+}
+
+TEST_CASE("creating a text file", "[mcard]")
+{
+    const char data[] = "hello world";
+
+}
+
+TEST_CASE("append data to text file", "[mcard]")
+{
+    const char data[] = "hello world";
+
+}
+
+TEST_CASE("append data to bin file", "[mcard]")
+{
+    const char data[] = "hello world";
+
+}
+
+
+
+

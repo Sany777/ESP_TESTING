@@ -25,7 +25,24 @@
     "gpio.h": "c",
     "sdmmc_types.h": "c",
     "esp_err.h": "c",
-    "stddef.h": "c"
+    "stddef.h": "c",
+    "chrono": "cpp",
+    "deque": "cpp",
+    "list": "cpp",
+    "string": "cpp",
+    "unordered_map": "cpp",
+    "vector": "cpp",
+    "sdcard.hpp": "c",
+    "cstdio": "cpp",
+    "limits": "cpp",
+    "*.tcc": "cpp",
+    "charconv": "cpp",
+    "compare": "cpp",
+    "condition_variable": "cpp",
+    "ctime": "cpp",
+    "mutex": "cpp",
+    "system_error": "cpp"
   },
-  "idf.flashType": "UART"
+  "idf.flashType": "UART",
+  "C_Cpp.errorSquiggles": "disabled"
 }

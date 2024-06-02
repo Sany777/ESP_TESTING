@@ -9,20 +9,20 @@ extern "C"{
 
 #include <cstdint>
 
-void led_on(uint8_t state);
 
 class SDCard {
 public:
-    virtual int writeBinFile(const char *filename, uint8_t *data, uint32_t data_size) = 0;
-    virtual int writeTextFile(const char *filename, char *str, bool append=false) = 0;
+    virtual esp_err_t begin() = 0;
+    virtual size_t getFileSize(const char * file_name) = 0;
+    virtual time_t getFileTime(const char *file_name) = 0;
+    virtual esp_err_t renameFile(const char *new_name, const char *old_name) = 0;
+    virtual size_t writeBinFile(const char * file_name, uint8_t *data, uint32_t data_size) = 0;
+    virtual size_t writeTextFile(const char * file_name, char *str, bool append) = 0;
+    virtual size_t writeTextToFile(bool append, const char *file_name, const char* format, ...) = 0;
+    virtual esp_err_t format() = 0;
+    virtual size_t readFile(const char * file_name, uint8_t **buf, uint32_t buf_size) = 0;
     virtual void printInfo() = 0;
-    virtual int deleteFile(const char* name) = 0;
-    virtual bool renameFile(const char *new_name, const char *old_name) = 0;
-    virtual int readFile(const char *filename, uint8_t *&buf, uint32_t buf_size) = 0;
-    virtual int getFileSize(const char *file_name) = 0;
-    virtual int getFileTime(const char *file_name) = 0;
-    virtual bool format() = 0;
-    virtual bool writeTextToFile(bool append, const char *file_name, const char* format, ...) = 0;
+    virtual esp_err_t deleteFile(const char* file_name) = 0;
 };
 
 class SDCardImp: public SDCard {
@@ -30,26 +30,28 @@ private:
     static constexpr char MOUNT_POINT[] = "/sdcard";
     static constexpr size_t SECTOR_SIZE = 16 * 1024;
     bool mounted;
-    bool openReadFile(const char* file_name, bool bin);
-    bool openFile(const char* file_name, const char* mode);
-    bool openWriteFile(const char* file_name, bool bin, bool append);
-    int readBinFile(uint8_t *file_buf, uint32_t file_size);
-    bool begin();
-    uint8_t* prepareBufer(uint8_t *&buf, uint32_t file_size);
-    void closeFile();
-    void initGPIO();
+    esp_err_t initGPIO();
+    esp_err_t openReadFile(const char* file_name, bool bin);
+    esp_err_t openFile(const char*  file_name, const char* mode);
+    esp_err_t openWriteFile(const char* file_name, bool bin, bool append=false);
+    void prepareBufer(uint8_t **buf, uint32_t file_size);
+    esp_err_t closeFile();
+    size_t readBinFile(uint8_t *file_buf, uint32_t file_size);
 public:
-    int writeBinFile(const char * file_name, uint8_t *data, uint32_t data_size)override;
-    int writeTextFile(const char * file_name, char *str, bool append=false)override;
-    void printInfo()override;
-    int deleteFile(const char* name)override;
-    bool renameFile(const char *new_name, const char *old_name)override;
-    int readFile(const char * file_name, uint8_t *&buf, uint32_t buf_size)override;
-    int getFileSize(const char *file_name)override;
-    int getFileTime(const char *file_name)override;
-    bool format()override;
-    bool writeTextToFile(bool append, const char *file_name, const char* format, ...)override;
+    esp_err_t begin();
+    size_t getFileSize(const char * file_name);
+    time_t getFileTime(const char *file_name);
+    esp_err_t renameFile(const char *new_name, const char *old_name);
+    size_t writeBinFile(const char * file_name, uint8_t *data, uint32_t data_size);
+    size_t writeTextFile(const char * file_name, char *str, bool append);
+    size_t writeTextToFile(bool append, const char *file_name, const char* format, ...);
+    esp_err_t format();
+    size_t readFile(const char * file_name, uint8_t **buf, uint32_t buf_size);
+    void printInfo();
+    esp_err_t deleteFile(const char* file_name);
+    esp_err_t deinit();
 };
+
 
 class AutoLock{
     SemaphoreHandle_t _semaphore;
@@ -61,5 +63,9 @@ public:
 #define ENTER_CRITICAL(semaphore)    \
     AutoLock _al(semaphore)
 
+esp_err_t led_on(uint8_t state);
 
 extern SDCard *sdcard;
+
+
+
