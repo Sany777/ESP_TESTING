@@ -1,0 +1,31 @@
+{
+  "C_Cpp.intelliSenseEngine": "default",
+  "idf.adapterTargetName": "esp32",
+  "idf.portWin": "COM11",
+  "files.associations": {
+    "*.css": "css",
+    "*.kit": "html",
+    "testable.h": "c",
+    "errno.h": "c",
+    "esp_heap_caps.h": "c",
+    "array": "c",
+    "bitset": "c",
+    "string_view": "c",
+    "format": "c",
+    "initializer_list": "c",
+    "span": "c",
+    "regex": "c",
+    "malloc.h": "c",
+    "algorithm": "cpp",
+    "testable.hpp": "c",
+    "unity.h": "c",
+    "cstring": "cpp",
+    "cstdint": "cpp",
+    "soc_caps.h": "c",
+    "gpio.h": "c",
+    "sdmmc_types.h": "c",
+    "esp_err.h": "c",
+    "stddef.h": "c"
+  },
+  "idf.flashType": "UART"
+}
