@@ -22,8 +22,7 @@ extern "C"{
 
 extern "C" void app_main(void)
 {
-    char data[100] = "text to save\0";
-    sdcard->writeTextFile("long_.txt", data);
+
     cameraInit();
 
     while (1)

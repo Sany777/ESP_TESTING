@@ -88,12 +88,12 @@ bool cameraInit()
 
 
 int i = 0;
-void save_image(uint8_t *buf, size_t data_len)
+void save_image(const uint8_t *buf, size_t data_len)
 {
     char name[50];
     snprintf(name,50,  "%d_pic.jpg", i);
-    sdcard->writeBinFile(name, buf, data_len);
-    sdcard->writeTextToFile(true, "log.txt", "%d - %s\n", i++, name);
+    // sdcard->writeToFile(name, buf, data_len);
+    sdcard->writeTextToFile("log.txt", true, "%d - %s\n", i++, name);
 }
 
 

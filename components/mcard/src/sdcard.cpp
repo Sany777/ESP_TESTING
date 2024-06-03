@@ -5,20 +5,20 @@ extern "C" {
     #include "esp_vfs_fat.h"
     #include "sdmmc_cmd.h"
     #include "driver/sdmmc_host.h"
-    #include <cstring>
     #include "driver/gpio.h"
+    #include <cstring>
 }
 
+#include <string>
 #include "sdcard.hpp"
-
-
 
 
 static SemaphoreHandle_t sdCardSemaphore;
 static FILE *_file;
 static sdmmc_card_t *_card;
-
 static SDCardImp sd;
+static const char *MOUNT_POINT = "/card";
+static const char *PATH_PREF_CSTR = "/card/";
 SDCard *sdcard = &sd;
 
 AutoLock::AutoLock(SemaphoreHandle_t &semaphore){
@@ -36,8 +36,8 @@ AutoLock::~AutoLock(){
 
 esp_err_t led_on(uint8_t state)
 {
-    const int GPIO_OUTPUT_IO_LED = 4;
-    return gpio_set_level((gpio_num_t)GPIO_OUTPUT_IO_LED, state);
+    const int GPIO_OUTPUT_LED = 4;
+    return gpio_set_level((gpio_num_t)GPIO_OUTPUT_LED, state);
 }
 
 esp_err_t SDCardImp::initGPIO()
@@ -55,17 +55,21 @@ size_t SDCardImp::getFileSize(const char * file_name)
 {
     struct stat st;
     size_t size = 0;
-    if (this->mounted && stat( file_name, &st) == 0) {
-        size = st.st_size;
+    std::string path = PATH_PREF_CSTR; 
+    path += file_name; 
+    if (this->mounted || begin() == ESP_OK) {
+        if(stat(path.c_str(), &st) == 0) size = st.st_size;
     }
     return size;
 }
 
-time_t SDCardImp::getFileTime(const char *file_name)
+time_t SDCardImp::getFileTime(const char* file_name)
 {
+    std::string path = PATH_PREF_CSTR; 
+    path += file_name; 
     struct stat st;
     time_t time = 0;
-    if (stat(file_name, &st) == 0) {
+    if (stat(path.c_str(), &st) == 0) {
         time = st.st_ctime;
     }
     return time;
@@ -74,13 +78,11 @@ time_t SDCardImp::getFileTime(const char *file_name)
 
 esp_err_t SDCardImp::begin()
 {
-
     ENTER_CRITICAL(sdCardSemaphore);
-    if(this->mounted)return true;
+    if(this->mounted)return ESP_OK;
     initGPIO();
-    if(this->mounted)return true;
     esp_vfs_fat_sdmmc_mount_config_t mount_config = {
-    .format_if_mount_failed = false,
+    .format_if_mount_failed = true,
     .max_files = 2,
     .allocation_unit_size = SECTOR_SIZE,
     .disk_status_check_enable = false
@@ -97,78 +99,59 @@ esp_err_t SDCardImp::begin()
     return res;
 }
 
-esp_err_t SDCardImp::renameFile(const char *new_name, const char *old_name)
+esp_err_t SDCardImp::renameFile(const char* old_name, const char* new_name)
 {
     ENTER_CRITICAL(sdCardSemaphore);
-    if(!this->mounted && begin() != ESP_OK)return false;
+    std::string new_name_path = PATH_PREF_CSTR;
+    new_name_path += new_name;
+    std::string old_name_path = PATH_PREF_CSTR;
+    old_name_path += old_name;
+    if(!this->mounted && begin() != ESP_OK)return ESP_FAIL;
     struct stat st;
-    if (stat(new_name, &st) == 0) {
-        unlink(new_name);
+    if (stat(old_name_path.c_str(), &st) == 0) {
+        if (stat(new_name_path.c_str(), &st) == 0) {
+            unlink(new_name_path.c_str());
+        }
+        return rename(old_name_path.c_str(), new_name_path.c_str()) == 0 ? ESP_OK : ESP_FAIL;
     }
-    return rename(old_name, new_name) == 0 ? ESP_OK : ESP_FAIL;
-}
-
-esp_err_t SDCardImp::openReadFile(const char* file_name, bool bin)
-{
-    return openFile(file_name, bin ? "rb":"r") == 0 ? ESP_OK : ESP_FAIL;
+    return ESP_FAIL;
 }
 
 
 esp_err_t SDCardImp::openFile(const char*  file_name, const char* mode)
 {
-    if(!this->mounted && begin() != ESP_OK)return false;
-    char name_buf[100] = {0};
-    snprintf(name_buf, 100, "%s/%s", MOUNT_POINT,  file_name);
-    _file = fopen(name_buf, mode);
+    if(!this->mounted && begin() != ESP_OK)return ESP_FAIL;
+    std::string path = PATH_PREF_CSTR;
+    path += file_name; 
+    _file = fopen(path.c_str(), mode);
     return _file != NULL ? ESP_OK : ESP_FAIL;
 }
 
-esp_err_t SDCardImp::openWriteFile(const char* file_name, bool bin, bool append=false)
-{
-    char mode[3] = { append ? 'a' : 'w', bin ? 'b' : '\0' };
-    return openFile(file_name, mode) == 0 ? ESP_OK : ESP_FAIL;;
-}
 
-size_t SDCardImp::writeBinFile(const char * file_name, uint8_t *data, uint32_t data_size)
+
+size_t SDCardImp::writeToFile(const char * file_name, const uint8_t *data, const size_t data_size, bool append)
 {
     ENTER_CRITICAL(sdCardSemaphore);
     size_t bc = 0;
-    if(openWriteFile( file_name, true, false) == ESP_OK){
-        if(data && data_size){
-            bc = fwrite(data, sizeof(uint8_t), data_size, _file);
-        }
-        closeFile();
+    if(openFile(file_name, append ? "ab" : "wb") == ESP_OK){
+        bc = fwrite(data, sizeof(uint8_t), data_size, _file);
+        fclose(_file);
     }
     return bc;
 }
 
-size_t SDCardImp::writeTextFile(const char * file_name, char *str, bool append)
+
+
+size_t SDCardImp::writeTextToFile( const char *file_name, bool append, const char* format, ...)
 {
     ENTER_CRITICAL(sdCardSemaphore);
-    size_t bc = 0;
-    if(openWriteFile( file_name, false, append) == ESP_OK){
-        if(data && data_size){
-            bc = fwrite(str, sizeof(uint8_t), strlen(str), _file);
-        }
-        closeFile();
-    }
-    return bc;
-}
-
-size_t SDCardImp::readBinFile(uint8_t *file_buf, uint32_t file_size)
-{
-    return fread(file_buf, sizeof(uint8_t), file_size, _file);
-}
-
-size_t SDCardImp::writeTextToFile(bool append, const char *file_name, const char* format, ...)
-{
     size_t bw = 0;
-    if(openWriteFile(file_name, false, append) == ESP_OK){
+    if(openFile(file_name, append ? "ab":"wb") == ESP_OK){
         va_list args;
         va_start(args, format);
         bw = vfprintf(_file, format, args);
+        fclose(_file);
         va_end(args);
-        closeFile();
     }
     return bw;
 }
@@ -178,39 +161,23 @@ esp_err_t SDCardImp::format()
 {
     ENTER_CRITICAL(sdCardSemaphore);
     if(!this->mounted && begin() != ESP_OK)return false;
+    this->mounted = false;
     return esp_vfs_fat_sdcard_format(MOUNT_POINT, _card) == 0 ? ESP_OK : ESP_FAIL;;
 }
 
-void SDCardImp::prepareBufer(uint8_t **buf, uint32_t file_size)
-{
-    if(buf){
-        delete [] buf;
-        buf = NULL;
-    }
-    *buf = new uint8_t [file_size];
-}
 
-
-size_t SDCardImp::readFile(const char * file_name, uint8_t **buf, uint32_t buf_size)
+size_t SDCardImp::readFile(const char * file_name, uint8_t *buf, const size_t buf_size)
 {
     ENTER_CRITICAL(sdCardSemaphore);
     size_t bc = 0;
-    const size_t actual_file_size = getFileSize(file_name);
-    if(actual_file_size && openReadFile( file_name, true) == ESP_OK){
-        if(actual_file_size > buf_size || *buf == NULL){
-            prepareBufer(buf, actual_file_size);
-        }
-        bc = readBinFile(buf, actual_file_size);
-        closeFile();
+    const size_t file_size = getFileSize(file_name);
+    if(file_size 
+            && file_size <= buf_size 
+            && openFile(file_name, "rb") == ESP_OK){
+        bc = fread(buf, sizeof(uint8_t), file_size, _file);
+        fclose(_file);
     }
     return bc;
-}
-
-
-esp_err_t SDCardImp::closeFile()
-{
-    ENTER_CRITICAL(sdCardSemaphore);
-    return fclose(_file) == 0 ? ESP_OK : ESP_FAIL;;
 }
 
 
@@ -223,16 +190,18 @@ void SDCardImp::printInfo()
 
 esp_err_t SDCardImp::deleteFile(const char* file_name)
 {
-    ENTER_CRITICAL(sdCardSemaphore);
-    if(!this->mounted)return -1;
-    return unlink(file_name) == 0 ? ESP_OK : ESP_FAIL;
+    ENTER_CRITICAL(sdCardSemaphore); 
+    if(file_name == NULL || (!this->mounted && begin() != ESP_OK))return ESP_FAIL;
+    std::string path = PATH_PREF_CSTR;
+    path += file_name; 
+    return unlink(path.c_str()) == 0 ? ESP_OK : ESP_FAIL;
 }
 
 esp_err_t SDCardImp::deinit()
 {
     ENTER_CRITICAL(sdCardSemaphore);
     this->mounted = false;
-    return esp_vfs_fat_sdmmc_unmount();
+    return esp_vfs_fat_sdcard_unmount(MOUNT_POINT, _card);
 }
 
 
