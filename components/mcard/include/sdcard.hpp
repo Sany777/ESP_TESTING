@@ -2,8 +2,6 @@
 
 extern "C"{
     #include <esp_system.h>
-    #include "freertos/FreeRTOS.h"
-    #include "freertos/task.h"
     #include <stdarg.h>
     #include "time.h"
 }
@@ -13,7 +11,6 @@ extern "C"{
 
 class SDCard {
 public:
-    virtual esp_err_t begin() = 0;
     virtual size_t getFileSize(const char * file_name) = 0;
     virtual time_t getFileTime(const char *file_name) = 0;
     virtual esp_err_t renameFile(const char *old_name, const char *new_name) = 0;
@@ -23,6 +20,7 @@ public:
     virtual size_t readFile(const char * file_name, uint8_t *buf, const size_t buf_size) = 0;
     virtual void printInfo() = 0;
     virtual esp_err_t deleteFile(const char* file_name) = 0;
+    virtual esp_err_t begin() = 0;
     virtual esp_err_t deinit() = 0;
 };
 
@@ -48,17 +46,6 @@ public:
 };
 
 
-class AutoLock{
-    SemaphoreHandle_t _semaphore;
-public:
-    AutoLock(SemaphoreHandle_t &semaphore);
-    ~AutoLock();
-};
-
-#define ENTER_CRITICAL(semaphore)    \
-    AutoLock _al(semaphore)
-
-esp_err_t led_on(uint8_t state);
 
 extern SDCard *sdcard;
 

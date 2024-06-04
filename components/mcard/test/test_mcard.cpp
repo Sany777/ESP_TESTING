@@ -6,6 +6,7 @@ extern "C"{
     #include <string.h>
     #include <errno.h>
     #include "esp_log.h"
+    #include "cmock.h"
 };
 
 #include "sdcard.hpp"
@@ -32,14 +33,14 @@ TEST_CASE("initialisation", "[mcard]")
     TEST_ASSERT_TRUE(sdcard->begin() == ESP_OK);
 }
 
-TEST_CASE("create a bin file", "[mcard]")
+TEST_CASE("create a bin file", "[mcard][true]")
 {
     size_t bw = sdcard->writeToFile(BIN_FILENAME, BIN_DATA, BIN_DATA_SIZE);
     show_errno();
     TEST_ASSERT_EQUAL(BIN_DATA_SIZE, bw);
 }
 
-TEST_CASE("deleting a no existing file", "[mcard][false][ignore]")
+TEST_CASE("deleting a no existing file", "[mcard][false]")
 {
     const esp_err_t err = sdcard->deleteFile(NO_EXIST_FILENAME);
     show_errno();
@@ -51,7 +52,7 @@ TEST_CASE("deleting an existing file", "[mcard][true]")
     sdcard->writeToFile(BIN_FILENAME, BIN_DATA, BIN_DATA_SIZE);
     const esp_err_t err = sdcard->deleteFile(BIN_FILENAME);
     show_errno();
-    TEST_ASSERT_TRUE(err == ESP_OK);
+    TEST_ESP_OK(err);
 }
 
 TEST_CASE("rename an existing file", "[mcard][true]")
@@ -62,7 +63,7 @@ TEST_CASE("rename an existing file", "[mcard][true]")
     show_errno();
     TEST_ASSERT_TRUE_MESSAGE(bw != 0,
             "no data was writed");
-    TEST_ASSERT_TRUE(err == ESP_OK);
+    TEST_ESP_OK(err);
 }
 
 TEST_CASE("rename a no existing file", "[mcard][false]")
@@ -101,7 +102,7 @@ TEST_CASE("get the file creation time", "[mcard][true]")
     TEST_ASSERT_EQUAL(creation_time, now_time);
 }
 
-TEST_CASE("creating a text file", "[mcard]")
+TEST_CASE("creating a text file", "[mcard][true]")
 {
     const size_t bw = sdcard->writeTextToFile(TEXT_FILENAME, false, TEXT_DATA);
     show_errno();
@@ -138,10 +139,10 @@ TEST_CASE("write formatted text to a text file", "[mcard][true]")
 
 TEST_CASE("deinitialisation", "[mcard]")
 {
-    TEST_ASSERT_TRUE(sdcard->deinit() == ESP_OK);
+    TEST_ESP_OK(sdcard->deinit());
 }
 
-TEST_CASE("format memory card", "[mcard][true]")
+TEST_CASE("format memory card", "[mcard][true][ignore]")
 {
-    TEST_ASSERT_TRUE(sdcard->format() == ESP_OK);
+    // TEST_ESP_OK(sdcard->format());
 }

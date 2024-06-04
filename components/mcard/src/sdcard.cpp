@@ -7,8 +7,11 @@ extern "C" {
     #include "driver/sdmmc_host.h"
     #include "driver/gpio.h"
     #include <cstring>
+    #include "freertos/FreeRTOS.h"
+    #include "freertos/task.h"
 }
 
+#include "help_tools.hpp"
 #include <string>
 #include "sdcard.hpp"
 
@@ -21,24 +24,6 @@ static const char *MOUNT_POINT = "/card";
 static const char *PATH_PREF_CSTR = "/card/";
 SDCard *sdcard = &sd;
 
-AutoLock::AutoLock(SemaphoreHandle_t &semaphore){
-    if(semaphore == NULL){
-        semaphore = xSemaphoreCreateRecursiveMutex();
-    }
-    this->_semaphore = semaphore;
-    xSemaphoreTakeRecursive(semaphore, portMAX_DELAY);
-}
-
-AutoLock::~AutoLock(){
-    xSemaphoreGiveRecursive(this->_semaphore);
-}
-
-
-esp_err_t led_on(uint8_t state)
-{
-    const int GPIO_OUTPUT_LED = 4;
-    return gpio_set_level((gpio_num_t)GPIO_OUTPUT_LED, state);
-}
 
 esp_err_t SDCardImp::initGPIO()
 {
