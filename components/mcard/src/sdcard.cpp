@@ -16,7 +16,7 @@ extern "C" {
 #include "sdcard.hpp"
 
 
-static SemaphoreHandle_t sdCardSemaphore;
+static SemaphoreHandle_t recursive_mux;
 static FILE *_file;
 static sdmmc_card_t *_card;
 static SDCardImp sd;
@@ -24,6 +24,11 @@ static const char *MOUNT_POINT = "/card";
 static const char *PATH_PREF_CSTR = "/card/";
 SDCard *sdcard = &sd;
 
+
+SDCardImp::SDCardImp()
+{
+    recursive_mux = xSemaphoreCreateRecursiveMutex();
+}
 
 esp_err_t SDCardImp::initGPIO()
 {
@@ -63,7 +68,7 @@ time_t SDCardImp::getFileTime(const char* file_name)
 
 esp_err_t SDCardImp::begin()
 {
-    ENTER_CRITICAL(sdCardSemaphore);
+    ENTER_CRITICAL(recursive_mux);
     if(this->mounted)return ESP_OK;
     initGPIO();
     esp_vfs_fat_sdmmc_mount_config_t mount_config = {
@@ -86,7 +91,7 @@ esp_err_t SDCardImp::begin()
 
 esp_err_t SDCardImp::renameFile(const char* old_name, const char* new_name)
 {
-    ENTER_CRITICAL(sdCardSemaphore);
+    ENTER_CRITICAL(recursive_mux);
     std::string new_name_path = PATH_PREF_CSTR;
     new_name_path += new_name;
     std::string old_name_path = PATH_PREF_CSTR;
@@ -116,7 +121,7 @@ esp_err_t SDCardImp::openFile(const char*  file_name, const char* mode)
 
 size_t SDCardImp::writeToFile(const char * file_name, const uint8_t *data, const size_t data_size, bool append)
 {
-    ENTER_CRITICAL(sdCardSemaphore);
+    ENTER_CRITICAL(recursive_mux);
     size_t bc = 0;
     if(openFile(file_name, append ? "ab" : "wb") == ESP_OK){
         bc = fwrite(data, sizeof(uint8_t), data_size, _file);
@@ -129,7 +134,7 @@ size_t SDCardImp::writeToFile(const char * file_name, const uint8_t *data, const
 
 size_t SDCardImp::writeTextToFile( const char *file_name, bool append, const char* format, ...)
 {
-    ENTER_CRITICAL(sdCardSemaphore);
+    ENTER_CRITICAL(recursive_mux);
     size_t bw = 0;
     if(openFile(file_name, append ? "ab":"wb") == ESP_OK){
         va_list args;
@@ -144,7 +149,7 @@ size_t SDCardImp::writeTextToFile( const char *file_name, bool append, const cha
 
 esp_err_t SDCardImp::format()
 {
-    ENTER_CRITICAL(sdCardSemaphore);
+    ENTER_CRITICAL(recursive_mux);
     if(!this->mounted && begin() != ESP_OK)return false;
     this->mounted = false;
     return esp_vfs_fat_sdcard_format(MOUNT_POINT, _card) == 0 ? ESP_OK : ESP_FAIL;;
@@ -153,7 +158,7 @@ esp_err_t SDCardImp::format()
 
 size_t SDCardImp::readFile(const char * file_name, uint8_t *buf, const size_t buf_size)
 {
-    ENTER_CRITICAL(sdCardSemaphore);
+    ENTER_CRITICAL(recursive_mux);
     size_t bc = 0;
     const size_t file_size = getFileSize(file_name);
     if(file_size 
@@ -168,14 +173,14 @@ size_t SDCardImp::readFile(const char * file_name, uint8_t *buf, const size_t bu
 
 void SDCardImp::printInfo()
 {
-    ENTER_CRITICAL(sdCardSemaphore);
+    ENTER_CRITICAL(recursive_mux);
     if(!this->mounted)return;
     sdmmc_card_print_info(stdout, _card);
 }
 
 esp_err_t SDCardImp::deleteFile(const char* file_name)
 {
-    ENTER_CRITICAL(sdCardSemaphore); 
+    ENTER_CRITICAL(recursive_mux); 
     if(file_name == NULL || (!this->mounted && begin() != ESP_OK))return ESP_FAIL;
     std::string path = PATH_PREF_CSTR;
     path += file_name; 
@@ -184,7 +189,7 @@ esp_err_t SDCardImp::deleteFile(const char* file_name)
 
 esp_err_t SDCardImp::deinit()
 {
-    ENTER_CRITICAL(sdCardSemaphore);
+    ENTER_CRITICAL(recursive_mux);
     this->mounted = false;
     return esp_vfs_fat_sdcard_unmount(MOUNT_POINT, _card);
 }

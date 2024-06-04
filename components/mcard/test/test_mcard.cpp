@@ -99,7 +99,7 @@ TEST_CASE("get the file creation time", "[mcard][true]")
     const time_t creation_time = sdcard->getFileTime(BIN_FILENAME);
     const time_t now_time = time(NULL);
     show_errno();
-    TEST_ASSERT_EQUAL(creation_time, now_time);
+    TEST_ASSERT_EQUAL(now_time, creation_time);
 }
 
 TEST_CASE("creating a text file", "[mcard][true]")
@@ -144,5 +144,5 @@ TEST_CASE("deinitialisation", "[mcard]")
 
 TEST_CASE("format memory card", "[mcard][true][ignore]")
 {
-    // TEST_ESP_OK(sdcard->format());
+    // UNITY_TEST_IGNORE(sdcard->format(), "optimisation");
 }

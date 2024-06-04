@@ -2,7 +2,6 @@
 
 
 
-
 AutoLock::AutoLock(SemaphoreHandle_t &semaphore){
     this->_semaphore = semaphore;
     xSemaphoreTakeRecursive(semaphore, portMAX_DELAY);

@@ -32,6 +32,7 @@ private:
     esp_err_t initGPIO();
     esp_err_t openFile(const char*  file_name, const char* mode);
 public:
+    SDCardImp();
     esp_err_t begin()override;
     size_t getFileSize(const char * file_name)override;
     time_t getFileTime(const char *file_name)override;
@@ -44,7 +45,6 @@ public:
     esp_err_t deleteFile(const char* file_name)override;
     esp_err_t deinit()override;
 };
-
 
 
 extern SDCard *sdcard;
