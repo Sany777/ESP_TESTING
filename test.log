@@ -1,0 +1,5 @@
+2024-06-06 23:03:37 INFO Target: esp32, Port: COM11
+2024-06-06 23:04:45 ERROR Failed Cases:
+2024-06-06 23:04:45 ERROR   - test init UART
+2024-06-06 23:04:45 ERROR   - get the file creation time
+2024-06-06 23:04:45 INFO Created unity output junit report: C:\Users\ssacha\AppData\Local\Temp\pytest-embedded\2024-06-06_20-03-36-610689\test_unit_test[test-name]\dut.xml

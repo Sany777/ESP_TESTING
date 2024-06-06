@@ -32,7 +32,7 @@ const size_t CICLE_NUM = 250000;
 void task_with_synch(void *vp)
 {
     size_t &test_counter = *(size_t *)vp;
-    vTaskDelay(10);
+    vTaskDelay(100);
     for(size_t i=0;i<CICLE_NUM;++i){
         {
             ENTER_CRITICAL(test_semaphore);
@@ -45,7 +45,7 @@ void task_with_synch(void *vp)
 void task_without_synch(void *vp)
 {
     size_t &test_counter = *(size_t *)vp;
-    vTaskDelay(10);
+    vTaskDelay(100);
     for(size_t i=0;i<CICLE_NUM;++i){
         ++test_counter;
     }

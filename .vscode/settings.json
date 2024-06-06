@@ -88,8 +88,11 @@
     "thread": "cpp",
     "cinttypes": "cpp",
     "typeinfo": "cpp",
-    "variant": "cpp"
+    "variant": "cpp",
+    "mfrc522.h": "c",
+    "limits.h": "c"
   },
   "idf.flashType": "UART",
-  "C_Cpp.errorSquiggles": "disabled"
+  "C_Cpp.errorSquiggles": "disabled",
+  "files.autoSave": "afterDelay"
 }

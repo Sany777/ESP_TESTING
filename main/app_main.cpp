@@ -6,7 +6,10 @@ extern "C"{
     #include <esp_system.h>
     #include <sys/param.h>
     #include <string.h>
-
+    #include "stdio.h"
+    #include "freertos/FreeRTOS.h"
+    #include "freertos/task.h"
+#include "esp_log.h"
 };
 
 
@@ -23,12 +26,13 @@ extern "C"{
 extern "C" void app_main(void)
 {
 
-    cameraInit();
-
+    // cameraInit();
+    int i =0;
     while (1)
     {
+        ESP_LOGI("", "%d", i++);
 
-    camera_example_capture();
+    // camera_example_capture();
 
         // camera_fb_t *pic = esp_camera_fb_get();
         // use pic->buf to access the image

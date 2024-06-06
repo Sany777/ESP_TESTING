@@ -30,7 +30,7 @@ void show_errno()
 
 TEST_CASE("initialisation", "[mcard]")
 {
-    TEST_ASSERT_TRUE(sdcard->begin() == ESP_OK);
+    TEST_ESP_OK(sdcard->begin());
 }
 
 TEST_CASE("create a bin file", "[mcard][true]")
@@ -44,7 +44,7 @@ TEST_CASE("deleting a no existing file", "[mcard][false]")
 {
     const esp_err_t err = sdcard->deleteFile(NO_EXIST_FILENAME);
     show_errno();
-    TEST_ASSERT_FALSE(err == ESP_OK);
+    TEST_ASSERT_NOT_EQUAL(ESP_OK, err);
 }
 
 TEST_CASE("deleting an existing file", "[mcard][true]")
@@ -69,7 +69,7 @@ TEST_CASE("rename an existing file", "[mcard][true]")
 TEST_CASE("rename a no existing file", "[mcard][false]")
 {
     const char NEW_FILENAME[] = "new_filname.txt";
-    TEST_ASSERT_FALSE(sdcard->renameFile(NO_EXIST_FILENAME, NEW_FILENAME) == ESP_OK);
+    TEST_ASSERT_NOT_EQUAL(ESP_OK, sdcard->renameFile(NO_EXIST_FILENAME, NEW_FILENAME));
 }
 
 
@@ -144,5 +144,5 @@ TEST_CASE("deinitialisation", "[mcard]")
 
 TEST_CASE("format memory card", "[mcard][true][ignore]")
 {
-    // UNITY_TEST_IGNORE(sdcard->format(), "optimisation");
+    // TEST_ESP_OK(sdcard->format());
 }
