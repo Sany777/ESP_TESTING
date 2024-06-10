@@ -90,7 +90,10 @@
     "typeinfo": "cpp",
     "variant": "cpp",
     "mfrc522.h": "c",
-    "limits.h": "c"
+    "limits.h": "c",
+    "uart.h": "c",
+    "uart_periph.h": "c",
+    "uart_private.h": "c"
   },
   "idf.flashType": "UART",
   "C_Cpp.errorSquiggles": "disabled",

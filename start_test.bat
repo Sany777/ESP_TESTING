@@ -1,6 +1,5 @@
+@REM pytest
 @echo off
 cd "./test/"
-idf.py set-target esp32
-idf.py build   
-@REM pytest
-idf.py -p COM11 flash monitor
+idf.py set-target esp32 
+idf.py build && idf.py -p COM11 flash && idf.py monitor
