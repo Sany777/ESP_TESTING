@@ -1,4 +1,4 @@
-2024-06-10 17:37:18 INFO Target: esp32, Port: COM11
-2024-06-10 17:37:26 INFO Target: esp32, Port: COM11
-2024-06-10 17:37:26 INFO App is the same according to the session cache. you can use flag "--confirm-target-elf-sha256" to make sure that the target elf file is the same as your local one.
-2024-06-10 17:37:26 INFO Skipping auto flash...
+2024-06-11 01:12:37 INFO Target: esp32, Port: COM11
+2024-06-11 01:12:43 INFO Target: esp32, Port: COM11
+2024-06-11 01:12:43 INFO App is the same according to the session cache. you can use flag "--confirm-target-elf-sha256" to make sure that the target elf file is the same as your local one.
+2024-06-11 01:12:43 INFO Skipping auto flash...

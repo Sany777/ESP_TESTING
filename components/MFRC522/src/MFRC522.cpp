@@ -51,7 +51,7 @@ int EspUart::available()
 uint8_t EspUart::read()
 {
     uint8_t b = 0;
-    uart_read_bytes(this->_UART_NUM, &b, 1, 200);
+    uart_read_bytes(this->_UART_NUM, &b, 1, 500/portTICK_PERIOD_MS);
     return b;
 }
 
@@ -62,7 +62,7 @@ size_t EspUart::read(char *buffer, size_t size)
 
 size_t EspUart::read(uint8_t *buffer, size_t size)
 {
-    return uart_read_bytes(this->_UART_NUM, buffer, size, 200);
+    return uart_read_bytes(this->_UART_NUM, buffer, size, 500/portTICK_PERIOD_MS);
 }
 
 size_t EspUart::write(const uint8_t *buffer, size_t size)
@@ -90,6 +90,15 @@ int EspUart::begin(int baud,
         .stop_bits = UART_STOP_BITS_1,
         .flow_ctrl = UART_HW_FLOWCTRL_DISABLE,
     };
+    this->_UART_NUM = port;
+    if(uart_is_driver_installed(port)){
+        uart_driver_delete(port);
+    }
+    // if(uart_is_driver_installed(port) ||
+    //     (port == EspUart::MONITOR_UART && CONFIG_LOG_DEFAULT_LEVEL>0)){
+    //     uart_flush(port);
+    //     return fix_serial_monitor_param(port, baud);
+    // }
     if(uart_param_config(port, &uart_config) != ESP_OK
             || uart_set_pin(port, 
                             txPin, 
@@ -97,11 +106,6 @@ int EspUart::begin(int baud,
                             UART_PIN_NO_CHANGE, 
                             UART_PIN_NO_CHANGE) != ESP_OK){
         return ESP_FAIL;
-    }
-    this->_UART_NUM = port;
-    if(uart_is_driver_installed(port) ||
-        (port == EspUart::MONITOR_UART && CONFIG_LOG_DEFAULT_LEVEL>0)){
-        return fix_serial_monitor_param(port, baud);
     }
     return uart_driver_install(port, DRV_BUF_SIZE * 2, 0, 0, NULL, 0);
 }
