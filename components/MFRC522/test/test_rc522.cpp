@@ -94,9 +94,9 @@ extern "C"{
 }
 #include "MFRC522.hpp"
 
-const char *mfrc_tag = "MFRC522";
+const char *mfrc_tag = "uart";
 
-TEST_CASE("test restore serial monitor settings", "[uart][pytest]")
+TEST_CASE("test restore serial monitor settings", "[uart][pytest][1]")
 {
    {
       EspUart serial;
@@ -104,46 +104,28 @@ TEST_CASE("test restore serial monitor settings", "[uart][pytest]")
    }
    ESP_LOGI(mfrc_tag, "serial monitor settings was restored");
 }
-
-TEST_CASE("test UART initialisation: baud rate=115200", "[uart]")
+TEST_CASE("write serial", "[uart][pytest][2]")
 {
-   EspUart serial;
-   TEST_ASSERT_TRUE(serial.begin(115200) == ESP_OK);
-}
-
-TEST_CASE("test UART initialisation: baud rate=9600", "[uart]")
-{
-   EspUart serial;
-   TEST_ASSERT_TRUE(serial.begin(9600) == ESP_OK);
-}
-
-TEST_CASE("test UART initialisation: port changed", "[uart]")
-{
-   EspUart serial;
-   TEST_ASSERT_TRUE(serial.begin(9600, UART_NUM_1) == ESP_OK);
-}
-
-TEST_CASE("write serial", "[uart]")
-{
-   const char data[] = "esp32:data\r\n";
-   const char mes[] = "esp32:send\r\n";
-   EspUart serial;
-   TEST_ASSERT_TRUE(serial.begin(115200) == ESP_OK);
+   const char data[] = "esp:data";
+   const char mes[] = "esp:send";
    ESP_LOGI(mfrc_tag, "%s", mes);
+   EspUart serial;
+   TEST_ASSERT_TRUE(serial.begin(115200) == ESP_OK);
+   TEST_ASSERT_EQUAL(sizeof(mes)-1, serial.write(mes));
    TEST_ASSERT_EQUAL(sizeof(data)-1, serial.write(data));
 }
 
-TEST_CASE("read serial", "[uart][pytest]")
+TEST_CASE("read serial", "[uart][pytest][3]")
 {
-   const char mes[] = "expect data";
+   const char mes[] = "esp:expect data";
    const char data[] = "pytest:data";
    char buf[100] = {0};
    size_t rb = 0;
    {
       EspUart serial;
       TEST_ASSERT_TRUE(serial.begin(115200) == ESP_OK);
+      int atempts = 100;
       ESP_LOGI(mfrc_tag, "%s", mes);
-      int atempts = 10;
       do{
          vTaskDelay(100);
          rb = serial.read(buf, sizeof(buf));
@@ -151,18 +133,38 @@ TEST_CASE("read serial", "[uart][pytest]")
    }
    TEST_ASSERT_EQUAL(sizeof(data)-1, rb);
    TEST_ASSERT_TRUE(strcmp(buf, data) == 0);
-   ESP_LOGI(mfrc_tag, "esp ok");
+   ESP_LOGI(mfrc_tag, "esp:ok");
+}
+
+TEST_CASE("test UART initialisation: baud rate=115200", "[uart][4]")
+{
+   EspUart serial;
+   TEST_ASSERT_TRUE(serial.begin(115200) == ESP_OK);
+}
+
+TEST_CASE("test UART initialisation: baud rate=9600", "[uart][5]")
+{
+   EspUart serial;
+   TEST_ASSERT_TRUE(serial.begin(9600) == ESP_OK);
+}
+
+TEST_CASE("test UART initialisation: port changed", "[uart][6]")
+{
+   EspUart serial;
+   TEST_ASSERT_TRUE(serial.begin(9600, UART_NUM_1) == ESP_OK);
 }
 
 
-TEST_CASE("test UART initialisation: reinstallation baud rate", "[uart]")
+
+
+TEST_CASE("test UART initialisation: reinstallation baud rate", "[uart][7]")
 {
    EspUart serial;
    TEST_ASSERT_TRUE(serial.begin(115200, UART_NUM_1) == ESP_OK);
    TEST_ASSERT_TRUE(serial.begin(9600, UART_NUM_1) == ESP_OK);
 }
 
-TEST_CASE("test UART initialisation: pins changed", "[uart]")
+TEST_CASE("test UART initialisation: pins changed", "[uart][8]")
 {
    const gpio_num_t TX_PIN = GPIO_NUM_12;
    const gpio_num_t RX_PIN = GPIO_NUM_13;
