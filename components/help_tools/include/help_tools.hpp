@@ -16,11 +16,21 @@ public:
 #define ENTER_CRITICAL(semaphore)    \
     AutoLock _al(semaphore)
 
-int led_on(uint8_t state);
+int set_pin(gpio_num_t pin, uint8_t state);
 
-#define CHECK_ESPERR_RET_VOID(_e)  do{if(_e != ESP_OK) return;}while(0)
-#define CHECK_ESPERR_RET_ERR(_e)   do{if(_e != ESP_OK) return ESP_FAIL;}while(0)
+#define CHECK_RES_RET(expect_status, act_status)    \
+    do{ if((expect_status) != (act_status)) return; }while(0)
+    
+#define CHECK_RES_RET_ERR(expect_status, act_status_expr) \
+    do {                                                  \
+        int act_status = (act_status_expr);               \
+        if ((expect_status) != (act_status))              \
+            return (act_status);                          \
+    } while (0)
 
 #ifndef MIN
     #define MIN(a,b) ((a) < (b) ? (a) : (b))
 #endif
+
+extern gpio_num_t LED_PIN;
+extern gpio_num_t RFID_RST_PIN;

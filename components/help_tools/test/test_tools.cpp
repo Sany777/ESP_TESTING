@@ -10,18 +10,17 @@ extern "C"{
 
 #include "help_tools.hpp"
 
-const gpio_num_t GPIO_OUTPUT_LED = GPIO_NUM_4;
 
 TEST_CASE("turn on led", "[gpio][true]")
 {
-    TEST_ESP_OK(led_on(1));
-    TEST_ASSERT_EQUAL(1, gpio_get_level(GPIO_OUTPUT_LED));
+    TEST_ESP_OK(set_pin(LED_PIN, true));
+    TEST_ASSERT_TRUE(gpio_get_level(LED_PIN));
 }
 
-TEST_CASE("turn off led", "[gpio][true]")
+TEST_CASE("turn off led", "[gpio][false]")
 {
-    TEST_ESP_OK(led_on(0));
-    TEST_ASSERT_EQUAL(0, gpio_get_level(GPIO_OUTPUT_LED));
+    TEST_ESP_OK(set_pin(LED_PIN, false));
+    TEST_ASSERT_FALSE(gpio_get_level(LED_PIN));
 }
 
 

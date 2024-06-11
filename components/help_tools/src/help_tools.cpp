@@ -1,6 +1,7 @@
 #include "help_tools.hpp"
 
-
+gpio_num_t LED_PIN = GPIO_NUM_4;
+gpio_num_t RFID_RST_PIN = GPIO_NUM_12;
 
 AutoLock::AutoLock(SemaphoreHandle_t &semaphore){
     this->_semaphore = semaphore;
@@ -12,9 +13,8 @@ AutoLock::~AutoLock(){
 }
 
 
-int led_on(uint8_t state)
+int set_pin(gpio_num_t pin, uint8_t state)
 {
-    const gpio_num_t GPIO_OUTPUT_LED = GPIO_NUM_4;
-    gpio_set_direction(GPIO_OUTPUT_LED, GPIO_MODE_INPUT_OUTPUT);
-    return gpio_set_level(GPIO_OUTPUT_LED, state);
+    gpio_set_direction(pin, GPIO_MODE_INPUT_OUTPUT);
+    return gpio_set_level(pin, state);
 }

@@ -53,24 +53,5 @@ public:
 };
 
 
-class MFRC522 {
 
-public:
-    MFRC522();
-    void begin(HardwareSerial *serial);
-    bool available();
-    void wait();
-    void readCardSerial();
-    uint8_t *getCardSerial();
-    bool getBlock(uint8_t block, uint8_t keyType, uint8_t *key, uint8_t *returnBlock);
-    bool writeBlock(uint8_t block, uint8_t keyType, uint8_t *key, uint8_t *data);
-    bool communicate(uint8_t command, uint8_t *sendData, uint8_t sendDataLength, uint8_t *returnData, uint8_t *returnDataLength);
-    void write(uint8_t value);
-    uint8_t read();
-    
-private:
-    HardwareSerial *_Serial;
-    uint8_t cardSerial[4];
-    
-};
 
