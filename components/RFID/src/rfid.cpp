@@ -4,89 +4,98 @@
 
 
 
-#define DELAY_MS(ms)        vTaskDelay((ms)/portTICK_PERIOD_MS)
+#define DELAY_MS(ms)            vTaskDelay((ms)/portTICK_PERIOD_MS)
 #define SET_RESET_PIN(state)    set_pin(RFID_RST_PIN, (state))
 
 
-RFID::RFID(HardwareSerial *serial)
-{
-    this->serial = serial;
-}
 
-int RFID::write_bytes_reg(const uint8_t *src, const size_t size)
-{
-    return this->serial->write(src, size) <= 0 
-        ? STATUS_INTERNAL_ERROR 
-        : STATUS_OK;
-}
 
-int RFID::write_byte_reg(const uint8_t b)
+int RFID::waitResponse()
 {
-    return this->serial->write(&b, 1) <= 0 
-        ? STATUS_INTERNAL_ERROR 
-        : STATUS_OK;
-}
-
-int RFID::PCD_WriteRegister(uint8_t reg, uint8_t value)
-{
-    uint8_t cmd[2];
-    cmd[0] = reg & 0x7E;
-    cmd[1] = value;
-    return write_bytes_reg(cmd, sizeof(cmd));
-}
-
-int RFID::read_reg(uint8_t *b)
-{
-    for(int i=10; i; --i){
+    if(this->serial == NULL)
+        return STATUS_BUS_ERR;
+    for(int i=100; i>0; --i){
+        DELAY_MS(10);
         if(this->serial->available()){
-            *b = this->serial->read();
             return STATUS_OK;
         }
     }
     return STATUS_TIMEOUT;
 }
 
-int RFID::PCD_WriteRegister(uint8_t reg, const size_t count, uint8_t *values)
+
+
+int RFID::write_bytes_reg(const uint8_t *src, const size_t size)
 {
-    uint8_t cmd_w = reg & 0x7E;
+    if(this->serial == NULL)
+        return STATUS_BUS_ERR;
+    return this->serial->write(src, size) <= 0 
+        ? STATUS_BUS_ERR 
+        : STATUS_OK;
+}
+
+int RFID::write_byte_reg(const uint8_t b)
+{
+    if(this->serial == NULL)
+        return STATUS_BUS_ERR;
+    return this->serial->write(b) <= 0 
+        ? STATUS_BUS_ERR 
+        : STATUS_OK;
+}
+
+int RFID::PCD_WriteRegister(uint8_t reg, uint8_t value)
+{
     CHECK_RES_RET_ERR(STATUS_OK, write_byte_reg(reg));
-    return write_bytes_reg(values, count);
-} 
+    waitResponse();
+    this->serial->read();
+    return write_byte_reg(value);
+}
+
+int RFID::read_reg(uint8_t *b)
+{
+    if(this->serial == NULL)
+        return STATUS_INTERNAL_ERROR;
+    waitResponse();
+    *b = this->serial->read();
+    return STATUS_OK;
+}
+
+int RFID::PCD_WriteRegister(uint8_t reg, uint8_t *values, const size_t count)
+{
+    for (int index=0; index<count; index++){
+    	CHECK_RES_RET_ERR(STATUS_OK, this->PCD_WriteRegister(reg, values[index]));
+    }
+    return STATUS_OK;
+}
 
 int RFID::PCD_ReadRegister(uint8_t reg, uint8_t *src)
 {
-    uint8_t zero = 0;
-    uint8_t cmd = reg | 0x80;
-    CHECK_RES_RET_ERR(STATUS_OK, write_byte_reg(cmd));
-    CHECK_RES_RET_ERR(STATUS_OK, read_reg(src));
-    write_byte_reg(zero);
-    return STATUS_OK;
+    for(int i=3; i>0; --i){
+        CHECK_RES_RET_ERR(STATUS_OK, write_byte_reg(reg | 0x80));
+        waitResponse();
+        if((STATUS_OK == read_reg(src))){
+            return STATUS_OK;
+        }
+    }
+    return STATUS_BUS_ERR;
 } 
 
-int RFID::PCD_ReadRegister(uint8_t reg, uint8_t count, uint8_t *data_buf, uint8_t rxAlign)
+int RFID::PCD_ReadRegister(uint8_t reg,  uint8_t *values, const size_t count, uint8_t rxAlign)
 {
-    if (count == 0) { return STATUS_INVALID; }
-    uint8_t address = 0x80 | reg;  
-    uint8_t index = 0;    
-    uint8_t zero = 0;
-    count -= 1; 
-    write_byte_reg(address);
-    while (index < count){
-        if (index == 0 && rxAlign){
-            uint8_t mask = 0;
-            for (uint8_t i = rxAlign; i <= 7; i++)mask |= (1 << i);
-            uint8_t value;
-            CHECK_RES_RET_ERR(STATUS_OK, write_byte_reg(address));
-            CHECK_RES_RET_ERR(STATUS_OK, read_reg(&value));
-            data_buf[0] = (data_buf[index] & ~mask) | (value & mask);
-        } else {
-            CHECK_RES_RET_ERR(STATUS_OK, write_byte_reg(address));
-            CHECK_RES_RET_ERR(STATUS_OK, read_reg(&data_buf[index]));
-        }
-        index++;
-    }
-    write_byte_reg(zero);
-    return read_reg(&data_buf[index]);
+    uint8_t value;
+    uint8_t index = 0;
+    if (rxAlign) {
+		uint8_t mask = 0xFF << rxAlign;
+		CHECK_RES_RET_ERR(STATUS_OK, PCD_ReadRegister(reg, &value));
+		values[0] = (values[0] & ~mask) | (value & mask);
+		++index;
+	}
+
+	while (index < count) {
+		CHECK_RES_RET_ERR(STATUS_OK, PCD_ReadRegister(reg, &values[index]));
+		++index;
+	}
+    return STATUS_OK;
 }
 
 int RFID::PCD_SetRegisterBits(uint8_t reg, uint8_t mask)
@@ -108,9 +117,9 @@ int RFID::PCD_CalculateCRC(uint8_t *data, uint8_t length, uint8_t *result)
     CHECK_RES_RET_ERR(STATUS_OK,PCD_WriteRegister(CommandReg, PCD_Idle));      // Stop any active command.
     CHECK_RES_RET_ERR(STATUS_OK,PCD_WriteRegister(DivIrqReg, 0x04));           // Clear the CRCIRq interrupt request bit
     CHECK_RES_RET_ERR(STATUS_OK,PCD_SetRegisterBits(FIFOLevelReg, 0x80));      // FlushBuffer = 1, FIFO initialization
-    CHECK_RES_RET_ERR(STATUS_OK,PCD_WriteRegister(FIFODataReg, length, data)); // Write data to the FIFO
+    CHECK_RES_RET_ERR(STATUS_OK,PCD_WriteRegister(FIFODataReg, data, length)); // Write data to the FIFO
     CHECK_RES_RET_ERR(STATUS_OK,PCD_WriteRegister(CommandReg, PCD_CalcCRC));   // Start the calculation
-    int i = 5000;
+    int i = 500;
     uint8_t byte;
     do{
         if (i== 0) return STATUS_TIMEOUT;
@@ -118,19 +127,33 @@ int RFID::PCD_CalculateCRC(uint8_t *data, uint8_t length, uint8_t *result)
         i -= 1;
     }while(!(byte & 0x04));
 
-    PCD_WriteRegister(CommandReg, PCD_Idle);
+    CHECK_RES_RET_ERR(STATUS_OK, PCD_WriteRegister(CommandReg, PCD_Idle));
     CHECK_RES_RET_ERR(STATUS_OK, PCD_ReadRegister(CRCResultRegL, &result[0]));
     return PCD_ReadRegister(CRCResultRegH, &result[1]);
 }
 
+void RFID::set_driver(HardwareSerial *serial)
+{
+    this->serial = serial;
+}
+
+
 
 int RFID::PCD_Init()
 {
-
 	SET_RESET_PIN(false);
 	DELAY_MS(10);
     SET_RESET_PIN(true);
-	DELAY_MS(50);
+    uint8_t count = 0;
+    uint8_t byte;
+    waitResponse();
+    this->serial->flush_input();
+DELAY_MS(150);
+    
+	PCD_WriteRegister(TxModeReg, 0x00);
+	PCD_WriteRegister(RxModeReg, 0x00);
+	PCD_WriteRegister(ModWidthReg, 0x26);
+
     // TPrescaler_Hi are the four low bits in TModeReg. TPrescaler_Lo is TPrescalerReg.
     // TAuto=1; timer starts automatically at the end of the transmission in all communication modes at all speeds
     CHECK_RES_RET_ERR(STATUS_OK, PCD_WriteRegister(TModeReg, 0x80));     
@@ -144,23 +167,28 @@ int RFID::PCD_Init()
     // Default 0x3F. Set the preset value for the CRC coprocessor for the CalcCRC command to 0x6363 (ISO 14443-3 part 6.2.4)    
     CHECK_RES_RET_ERR(STATUS_OK, PCD_WriteRegister(ModeReg, 0x3D));       
     // Set Rx Gain to max
-    CHECK_RES_RET_ERR(STATUS_OK, PCD_WriteRegister(RFCfgReg, (0x07<<4))); 
+    CHECK_RES_RET_ERR(STATUS_OK, PCD_WriteRegister(RFCfgReg, RxGain_max)); 
     // Enable the antenna driver pins TX1 and TX2 (they were disabled by the reset)
-    return PCD_AntennaOn();                        
+    PCD_AntennaOn();
+    return STATUS_OK;
 }
 
+RFID::~RFID()
+{
+	SET_RESET_PIN(false);
+}
 
 int RFID::PCD_Reset()
 {
-  const int res = PCD_WriteRegister(CommandReg, PCD_SoftReset); 
+  CHECK_RES_RET_ERR(STATUS_OK, PCD_WriteRegister(CommandReg, PCD_SoftReset)); 
   DELAY_MS(50);
-  return res;
+  return STATUS_OK;
 }
 
 int RFID::PCD_AntennaOn()
 {
     uint8_t value;
-    CHECK_RES_RET_ERR(STATUS_OK,PCD_ReadRegister(TxControlReg, &value));
+    CHECK_RES_RET_ERR(STATUS_OK, PCD_ReadRegister(TxControlReg, &value));
     if ((value & 0x03) != 0x03){
         return PCD_WriteRegister(TxControlReg, value | 0x03);
     }
@@ -176,7 +204,7 @@ int RFID::PCD_TransceiveData(uint8_t *sendData,
                                     uint8_t rxAlign,
                                     bool checkCRC)
 {
-    uint8_t waitIRq = 0x30;   
+    const uint8_t waitIRq = 0x30;   
     return PCD_CommunicateWithPICC(PCD_Transceive, 
                                     waitIRq, 
                                     sendData, 
@@ -187,6 +215,7 @@ int RFID::PCD_TransceiveData(uint8_t *sendData,
                                     rxAlign,
                                     checkCRC);
 } 
+
 
 
 int RFID::PCD_CommunicateWithPICC(uint8_t command,
@@ -206,20 +235,23 @@ int RFID::PCD_CommunicateWithPICC(uint8_t command,
     CHECK_RES_RET_ERR(STATUS_OK, PCD_WriteRegister(CommandReg, PCD_Idle));            // Stop any active command.
     CHECK_RES_RET_ERR(STATUS_OK, PCD_WriteRegister(ComIrqReg, 0x7F));                 // Clear all seven interrupt request bits
     CHECK_RES_RET_ERR(STATUS_OK, PCD_SetRegisterBits(FIFOLevelReg, 0x80));            // FlushBuffer = 1, FIFO initialization
-    CHECK_RES_RET_ERR(STATUS_OK, PCD_WriteRegister(FIFODataReg, sendLen, sendData));  // Write sendData to the FIFO
+    CHECK_RES_RET_ERR(STATUS_OK, PCD_WriteRegister(FIFODataReg, sendData, sendLen));  // Write sendData to the FIFO
     CHECK_RES_RET_ERR(STATUS_OK, PCD_WriteRegister(BitFramingReg, bitFraming));       // Bit adjustments
     CHECK_RES_RET_ERR(STATUS_OK, PCD_WriteRegister(CommandReg, command));             // Execute the command
     if (command == PCD_Transceive){
         PCD_SetRegisterBits(BitFramingReg, 0x80);      // StartSend=1, transmission of data starts
     }
 
-    int i = 2000;
     uint8_t byte;
-    do{
-        if (i== 0) return STATUS_TIMEOUT;
-        PCD_ReadRegister(ComIrqReg, &byte);
-        i -= 1;
-    }while(!(byte & waitIRq));
+	for (uint16_t i=2000; i > 0; i--) {
+		PCD_ReadRegister(ComIrqReg, &byte);	// ComIrqReg[7..0] bits are: Set1 TxIRq RxIRq IdleIRq HiAlertIRq LoAlertIRq ErrIRq TimerIRq
+		if (byte & waitIRq) {					// One of the interrupts that signal success has been set.
+			break;
+		}
+		if (byte & 0x01) {						// Timer interrupt - nothing received in 25ms
+			return STATUS_TIMEOUT;
+		}
+	}
 
     // Stop now if any errors except collisions were detected.
     uint8_t errorRegValue;
@@ -235,7 +267,7 @@ int RFID::PCD_CommunicateWithPICC(uint8_t command,
         // Number of bytes returned
         *backLen = byte_num;
         // Get received data from FIFO                       
-        CHECK_RES_RET_ERR(STATUS_OK, PCD_ReadRegister(FIFODataReg, byte_num, backData, rxAlign));  
+        CHECK_RES_RET_ERR(STATUS_OK, PCD_ReadRegister(FIFODataReg, backData, byte_num,  rxAlign));  
         // RxLastBits[2:0] indicates the number of valid bits in the last received byte. If this value is 000b, the whole byte is valid.
         CHECK_RES_RET_ERR(STATUS_OK, PCD_ReadRegister(ControlReg, &_validBits));
         _validBits &= 0x07; 
@@ -387,11 +419,11 @@ int RFID::PICC_Select(Uid *uid, uint8_t validBits)
             // Max 4 bytes in each Cascade Level. Only 3 left if we use the Cascade Tag
             uint8_t maxBytes = useCascadeTag ? 3 : 4;
             if (bytesToCopy > maxBytes){
-            bytesToCopy = maxBytes;
+                bytesToCopy = maxBytes;
             }
 
-            for (count = 0; count < bytesToCopy; count++){
-            buffer[index++] = uid->uidByte[uidIndex + count];
+            for (int c = 0; c < bytesToCopy; c++){
+                buffer[index++] = uid->uidByte[uidIndex + c];
             }
         }
 
@@ -421,16 +453,16 @@ int RFID::PICC_Select(Uid *uid, uint8_t validBits)
             responseBuffer  = &buffer[6];
             responseLength  = 3;
             } else { // This is an ANTICOLLISION.
-            //Serial.print("ANTICOLLISION: currentLevelKnownBits="); Serial.println(currentLevelKnownBits, DEC);
-            txLastBits     = currentLevelKnownBits % 8;
-            count          = currentLevelKnownBits / 8;  // Number of whole bytes in the UID part.
-            index          = 2 + count;                  // Number of whole bytes: SEL + NVB + UIDs
-            buffer[1]      = (index << 4) + txLastBits;  // NVB - Number of Valid Bits
-            bufferUsed     = index + (txLastBits ? 1 : 0);
+                //Serial.print("ANTICOLLISION: currentLevelKnownBits="); Serial.println(currentLevelKnownBits, DEC);
+                txLastBits     = currentLevelKnownBits % 8;
+                count          = currentLevelKnownBits / 8;  // Number of whole bytes in the UID part.
+                index          = 2 + count;                  // Number of whole bytes: SEL + NVB + UIDs
+                buffer[1]      = (index << 4) + txLastBits;  // NVB - Number of Valid Bits
+                bufferUsed     = index + (txLastBits ? 1 : 0);
 
-            // Store response in the unused part of buffer
-            responseBuffer = &buffer[index];
-            responseLength = sizeof(buffer) - index;
+                // Store response in the unused part of buffer
+                responseBuffer = &buffer[index];
+                responseLength = sizeof(buffer) - index;
             }
 
             // Set bit adjustments
@@ -440,26 +472,26 @@ int RFID::PICC_Select(Uid *uid, uint8_t validBits)
             // Transmit the buffer and receive the response.
             result = PCD_TransceiveData(buffer, bufferUsed, responseBuffer, &responseLength, &txLastBits, rxAlign);
             if (result == STATUS_COLLISION){ 
-            // More than one PICC in the field => collision.
-            PCD_ReadRegister(CollReg, &result);     // CollReg[7..0] bits are: ValuesAfterColl reserved CollPosNotValid CollPos[4:0]
-            if (result & 0x20){
-                return STATUS_COLLISION; // Without a valid collision position we cannot continue
-            }
+                // More than one PICC in the field => collision.
+                CHECK_RES_RET_ERR(STATUS_OK, PCD_ReadRegister(CollReg, &result));     // CollReg[7..0] bits are: ValuesAfterColl reserved CollPosNotValid CollPos[4:0]
+                if (result & 0x20){
+                    return STATUS_COLLISION; // Without a valid collision position we cannot continue
+                }
 
-            uint8_t collisionPos = result & 0x1F; // Values 0-31, 0 means bit 32.
-            if (collisionPos == 0){
-                collisionPos = 32;
-            }
-            // No progress - should not happen
-            if (collisionPos <= currentLevelKnownBits){ 
-                return STATUS_INTERNAL_ERROR;
-            }
+                uint8_t collisionPos = result & 0x1F; // Values 0-31, 0 means bit 32.
+                if (collisionPos == 0){
+                    collisionPos = 32;
+                }
+                // No progress - should not happen
+                if (collisionPos <= currentLevelKnownBits){ 
+                    return STATUS_INTERNAL_ERROR;
+                }
 
-            // Choose the PICC with the bit set.
-            currentLevelKnownBits = collisionPos;
-            count = (currentLevelKnownBits - 1) % 8; // The bit to modify
-            index = 1 + (currentLevelKnownBits / 8) + (count ? 1 : 0); // First byte is index 0.
-            buffer[index] |= (1 << count);
+                // Choose the PICC with the bit set.
+                currentLevelKnownBits = collisionPos;
+                count = (currentLevelKnownBits - 1) % 8; // The bit to modify
+                index = 1 + (currentLevelKnownBits / 8) + (count ? 1 : 0); // First byte is index 0.
+                buffer[index] |= (1 << count);
             } else if (result != STATUS_OK) {
                 return result;
             } else {
@@ -527,7 +559,6 @@ int RFID::PICC_HaltA()
     CHECK_RES_RET_ERR(STATUS_OK, PCD_CalculateCRC(buffer, 2, &buffer[2]));
 
     // Send the command.
-    // The standard says:
     // If the PICC responds with any modulation during a period of 1 ms after the end of the frame containing the
     // HLTA command, this response shall be interpreted as 'not acknowledge'.
     // We interpret that this way: Only STATUS_TIMEOUT is an success.
@@ -593,7 +624,6 @@ int RFID::MIFARE_Read(uint8_t blockAddr, uint8_t *buffer, uint8_t *bufferSize)
  */
 int RFID::MIFARE_Write(uint8_t blockAddr, uint8_t *buffer, uint8_t bufferSize)
 {
-
     // Sanity check
     if (buffer == NULL || bufferSize < 16) return STATUS_INVALID;
 
@@ -787,17 +817,17 @@ void RFID::MIFARE_SetAccessBits(uint8_t *accessBitBuffer,
 } 
 
 
-bool RFID::PICC_IsNewCardPresent(void)
+bool RFID::PICC_IsNewCard(void)
 {
     uint8_t bufferATQA[2];
     uint8_t bufferSize = sizeof(bufferATQA);
+
     uint8_t result = PICC_RequestA(bufferATQA, &bufferSize);
     return ((result == STATUS_OK) || (result == STATUS_COLLISION));
 }
 
 
-bool RFID::PICC_ReadCardSerial(void)
+bool RFID::PICC_ReadCard(void)
 {
-    uint8_t result = PICC_Select(&uid);
-    return (result == STATUS_OK);
+    return PICC_Select(&uid) == STATUS_OK;
 } 

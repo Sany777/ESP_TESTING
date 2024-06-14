@@ -102,20 +102,20 @@ TEST_CASE("get the file creation time", "[mcard][true]")
     TEST_ASSERT_EQUAL(now_time, creation_time);
 }
 
-TEST_CASE("creating a text file", "[mcard][true]")
+TEST_CASE("creating a txt file", "[mcard][true]")
 {
     const size_t bw = sdcard->writeTextToFile(TEXT_FILENAME, false, TEXT_DATA);
     show_errno();
     TEST_ASSERT_EQUAL(TEXT_DATA_SIZE, bw);
 }
 
-TEST_CASE("append data to text file", "[mcard]")
+TEST_CASE("append data to txt file", "[mcard]")
 {
     TEST_ASSERT_EQUAL(TEXT_DATA_SIZE, sdcard->writeTextToFile("new.txt", false, TEXT_DATA));
     TEST_ASSERT_EQUAL(TEXT_DATA_SIZE, sdcard->writeTextToFile("new.txt", true, TEXT_DATA));
 }
 
-TEST_CASE("write formatted text to a text file", "[mcard][true]")
+TEST_CASE("write formatted text to a txt file", "[mcard][true]")
 {
     char check_buf[100] = {0};
     char file_buf[100] = {0};
@@ -144,5 +144,5 @@ TEST_CASE("deinitialisation", "[mcard]")
 
 TEST_CASE("format memory card", "[mcard][true][ignore]")
 {
-    // TEST_ESP_OK(sdcard->format());
+    TEST_ESP_OK(sdcard->format());
 }

@@ -29,6 +29,10 @@ int EspUart::fix_serial_monitor_param(uart_port_t uart_num, const uint32_t baudr
     return ESP_OK;
 }
 
+void EspUart::flush_input()
+{
+    uart_flush_input(this->_UART_NUM);
+}
 void EspUart::deinit(uart_port_t cur_port)
 {
     if(uart_is_driver_installed(cur_port)){

@@ -14,6 +14,7 @@ public:
     virtual size_t write(uint8_t b) = 0;
     virtual size_t write(const uint8_t *buffer, size_t size) = 0;
     virtual size_t write(const char *buffer) = 0;
+    virtual void flush_input() = 0;
 };
 
 class EspUart : public HardwareSerial{
@@ -28,7 +29,7 @@ public:
     static constexpr uint32_t  MONITOR_SPEED = 115200;
     static constexpr int MONITOR_TX_PIN = GPIO_NUM_1;
     static constexpr int MONITOR_RX_PIN = GPIO_NUM_3;
-    bool monitor_work;
+    void flush_input()override;
     int available()override;
     uint8_t read()override;
     size_t read(char *buffer, size_t size)override;

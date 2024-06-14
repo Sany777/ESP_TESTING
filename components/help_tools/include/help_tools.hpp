@@ -23,7 +23,7 @@ int set_pin(gpio_num_t pin, uint8_t state);
     
 #define CHECK_RES_RET_ERR(expect_status, act_status_expr) \
     do {                                                  \
-        int act_status = (act_status_expr);               \
+        const int act_status = (act_status_expr);         \
         if ((expect_status) != (act_status))              \
             return (act_status);                          \
     } while (0)

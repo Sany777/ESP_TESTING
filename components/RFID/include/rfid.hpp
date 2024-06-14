@@ -2,48 +2,79 @@
 
 #include "serial.hpp"
 
+enum MIFARE_Misc {
+	MF_ACK = 0xA,	// The MIFARE Classic uses a 4 bit ACK/NAK. Any other value than 0xA is NAK.
+	MF_KEY_SIZE = 6,	// A Mifare Crypto1 key is 6 bytes.
+};
+
+struct Uid{
+	uint8_t    size;     // Number of bytes in the UID. 4, 7 or 10.
+	uint8_t    uidByte[10];
+	uint8_t    sak;      // The SAK (Select acknowledge) byte returned from the PICC after successful selection.
+};
+
+struct MIFARE_Key{
+	uint8_t keyByte[MF_KEY_SIZE];
+};
+
 class RFID{
 
 public:
-
-	enum MIFARE_Misc {
-		MF_ACK                 = 0xA,    // The MIFARE Classic uses a 4 bit ACK/NAK. Any other value than 0xA is NAK.
-		MF_KEY_SIZE            = 6       // A Mifare Crypto1 key is 6 bytes.
+	enum StatusCode {
+		STATUS_OK              = 1,  // Success
+		STATUS_ERROR           = 2,  // Error in communication
+		STATUS_COLLISION       = 3,  // Collision detected
+		STATUS_TIMEOUT         = 4,  // Timeout in communication.
+		STATUS_NO_ROOM         = 5,  // A buffer is not big enough.
+		STATUS_INTERNAL_ERROR  = 6,  // Internal error in the code. Should not happen ;-)
+		STATUS_INVALID         = 7,  // Invalid argument.
+		STATUS_CRC_WRONG       = 8,  // The CRC_A does not match
+		STATUS_MIFARE_NACK     = 9,   // A MIFARE PICC responded with NAK.
+		STATUS_BUS_ERR		   = 10,
 	};
+	
 
-
-	// A struct used for passing the UID of a PICC.
-	typedef struct {
-		uint8_t    size;     // Number of bytes in the UID. 4, 7 or 10.
-		uint8_t    uidByte[10];
-		uint8_t    sak;      // The SAK (Select acknowledge) byte returned from the PICC after successful selection.
-	} Uid;
-
-	// A struct used for passing a MIFARE Crypto1 key
-	typedef struct {
-	uint8_t    keyByte[MF_KEY_SIZE];
-	} MIFARE_Key;
 
 	Uid uid;
 
-	RFID(HardwareSerial *serial);
-
-	static const int FIFO_SIZE = 64;  
-
-
-	int PCD_Init(void);
-
+	RFID():serial(NULL){};
+	RFID(HardwareSerial *serial){ set_driver(serial); }
+	void set_driver(HardwareSerial *serial);
+	int waitResponse();
+	int PCD_Init();
+	~RFID();
 	int PCD_Reset(void);
+
+	void PCD_StopCrypto1(void);
+
+	int MIFARE_Read(uint8_t blockAddr, uint8_t *buffer, uint8_t *bufferSize);
+
+	int MIFARE_Write(uint8_t blockAddr, uint8_t *buffer, uint8_t bufferSize);
+
+	int MIFARE_UltralightWrite(uint8_t page, uint8_t *buffer, uint8_t bufferSize);
+
+	int MIFARE_Restore(uint8_t blockAddr);
+
+	int MIFARE_Transfer(uint8_t blockAddr);
+
+	int PICC_Select(Uid *uid, uint8_t validBits = 0);
+
+	int PICC_HaltA(void);
+
+
+	int MIFARE_Decrement(uint8_t blockAddr, uint32_t delta);
+
+	int MIFARE_Increment(uint8_t blockAddr, uint32_t delta);
 
 	int PCD_AntennaOn(void);
 
 	int PCD_WriteRegister(uint8_t reg, uint8_t value);
 
-	int PCD_WriteRegister(uint8_t reg, const size_t count, uint8_t *values);
+	int PCD_WriteRegister(uint8_t reg, uint8_t *values, const size_t count);
 
 	int PCD_ReadRegister(uint8_t reg, uint8_t *src);
 
-	int PCD_ReadRegister(uint8_t reg, uint8_t count, uint8_t *values, uint8_t rxAlign = 0);
+	int PCD_ReadRegister(uint8_t reg,  uint8_t *values, const size_t count, uint8_t rxAlign = 0);
 
 	int PCD_SetRegisterBits(uint8_t reg, uint8_t mask);
 
@@ -75,27 +106,11 @@ public:
 
 	int PICC_REQA_or_WUPA(uint8_t command, uint8_t *bufferATQA, uint8_t *bufferSize);
 
-	int PICC_Select(Uid *uid, uint8_t validBits = 0);
 
-	int PICC_HaltA(void);
 
 	int PCD_Authenticate(uint8_t command, uint8_t blockAddr, MIFARE_Key *key, Uid *uid);
 
-	void PCD_StopCrypto1(void);
 
-	int MIFARE_Read(uint8_t blockAddr, uint8_t *buffer, uint8_t *bufferSize);
-
-	int MIFARE_Write(uint8_t blockAddr, uint8_t *buffer, uint8_t bufferSize);
-
-	int MIFARE_UltralightWrite(uint8_t page, uint8_t *buffer, uint8_t bufferSize);
-
-	int MIFARE_Decrement(uint8_t blockAddr, uint32_t delta);
-
-	int MIFARE_Increment(uint8_t blockAddr, uint32_t delta);
-
-	int MIFARE_Restore(uint8_t blockAddr);
-
-	int MIFARE_Transfer(uint8_t blockAddr);
 
 	int PCD_MIFARE_Transceive(uint8_t *sendData, uint8_t sendLen, bool acceptTimeout = false);
 
@@ -111,9 +126,9 @@ public:
 							uint8_t g2,
 							uint8_t g3);
 							
-	bool PICC_IsNewCardPresent(void);
+	bool PICC_IsNewCard(void);
 
-	bool PICC_ReadCardSerial(void);
+	bool PICC_ReadCard(void);
 
 private:
 
@@ -123,74 +138,76 @@ private:
 enum  PCD_Register{
 	// Page 0: Command and status
 	//                0x00        // reserved for future use
-	CommandReg      = 0x01 << 1,  // starts and stops command execution
-	ComIEnReg       = 0x02 << 1,  // enable and disable interrupt request control bits
-	DivIEnReg       = 0x03 << 1,  // enable and disable interrupt request control bits
-	ComIrqReg       = 0x04 << 1,  // interrupt request bits
-	DivIrqReg       = 0x05 << 1,  // interrupt request bits
-	ErrorReg        = 0x06 << 1,  // error bits showing the error status of the last command executed
-	Status1Reg      = 0x07 << 1,  // communication status bits
-	Status2Reg      = 0x08 << 1,  // receiver and transmitter status bits
-	FIFODataReg     = 0x09 << 1,  // input and output of 64 byte FIFO buffer
-	FIFOLevelReg    = 0x0A << 1,  // number of bytes stored in the FIFO buffer
-	WaterLevelReg   = 0x0B << 1,  // level for FIFO underflow and overflow warning
-	ControlReg      = 0x0C << 1,  // miscellaneous control registers
-	BitFramingReg   = 0x0D << 1,  // adjustments for bit-oriented frames
-	CollReg         = 0x0E << 1,  // bit position of the first bit-collision detected on the RF interface
+	CommandReg      = 0x01<<1,  // starts and stops command execution
+	ComIEnReg       = 0x02<<1,  // enable and disable interrupt request control bits
+	DivIEnReg       = 0x03<<1,  // enable and disable interrupt request control bits
+	ComIrqReg       = 0x04<<1,  // interrupt request bits
+	DivIrqReg       = 0x05<<1,  // interrupt request bits
+	ErrorReg        = 0x06<<1,  // error bits showing the error status of the last command executed
+	Status1Reg      = 0x07<<1,  // communication status bits
+	Status2Reg      = 0x08<<1,  // receiver and transmitter status bits
+	FIFODataReg     = 0x09<<1,  // input and output of 64 byte FIFO buffer
+	FIFOLevelReg    = 0x0A<<1,  // number of bytes stored in the FIFO buffer
+	WaterLevelReg   = 0x0B<<1,  // level for FIFO underflow and overflow warning
+	ControlReg      = 0x0C<<1,  // miscellaneous control registers
+	BitFramingReg   = 0x0D<<1,  // adjustments for bit-oriented frames
+	CollReg         = 0x0E<<1,  // bit position of the first bit-collision detected on the RF interface
 	//                0x0F        // reserved for future use
 	// Page 1:Command
 	//                0x10        // reserved for future use
-	ModeReg         = 0x11 << 1,  // defines general modes for transmitting and receiving
-	TxModeReg       = 0x12 << 1,  // defines transmission data rate and framing
-	RxModeReg       = 0x13 << 1,  // defines reception data rate and framing
-	TxControlReg    = 0x14 << 1,  // controls the logical behavior of the antenna driver pins TX1 and TX2
-	TxASKReg        = 0x15 << 1,  // controls the setting of the transmission modulation
-	TxSelReg        = 0x16 << 1,  // selects the internal sources for the antenna driver
-	RxSelReg        = 0x17 << 1,  // selects internal receiver settings
-	RxThresholdReg  = 0x18 << 1,  // selects thresholds for the bit decoder
-	DemodReg        = 0x19 << 1,  // defines demodulator settings
+	ModeReg         = 0x11<<1,  // defines general modes for transmitting and receiving
+	TxModeReg       = 0x12<<1,  // defines transmission data rate and framing
+	RxModeReg       = 0x13<<1,  // defines reception data rate and framing
+	TxControlReg    = 0x14<<1,  // controls the logical behavior of the antenna driver pins TX1 and TX2
+	TxASKReg        = 0x15<<1,  // controls the setting of the transmission modulation
+	TxSelReg        = 0x16<<1,  // selects the internal sources for the antenna driver
+	RxSelReg        = 0x17<<1,  // selects internal receiver settings
+	RxThresholdReg  = 0x18<<1,  // selects thresholds for the bit decoder
+	DemodReg        = 0x19<<1,  // defines demodulator settings
 	//                0x1A        // reserved for future use
 	//                0x1B        // reserved for future use
-	MfTxReg         = 0x1C << 1,  // controls some MIFARE communication transmit parameters
-	MfRxReg         = 0x1D << 1,  // controls some MIFARE communication receive parameters
+	MfTxReg         = 0x1C<<1,  // controls some MIFARE communication transmit parameters
+	MfRxReg         = 0x1D<<1,  // controls some MIFARE communication receive parameters
 	//                0x1E        // reserved for future use
-	SerialSpeedReg  = 0x1F << 1,  // selects the speed of the serial UART interface
+	SerialSpeedReg  = 0x1F<<1,  // selects the speed of the serial UART interface
 
 	// Page 2: Configuration
 	//                0x20        // reserved for future use
-	CRCResultRegH   = 0x21 << 1,  // shows the MSB and LSB values of the CRC calculation
-	CRCResultRegL   = 0x22 << 1,
+	CRCResultRegH   = 0x21<<1,  // shows the MSB and LSB values of the CRC calculation
+	CRCResultRegL   = 0x22<<1,
 	//                0x23        // reserved for future use
-	ModWidthReg     = 0x24 << 1,  // controls the ModWidth setting?
+	ModWidthReg     = 0x24<<1,  // controls the ModWidth setting?
 	//                0x25        // reserved for future use
-	RFCfgReg        = 0x26 << 1,  // configures the receiver gain
-	GsNReg          = 0x27 << 1,  // selects the conductance of the antenna driver pins TX1 and TX2 for modulation
-	CWGsPReg        = 0x28 << 1,  // defines the conductance of the p-driver output during periods of no modulation
-	ModGsPReg       = 0x29 << 1,  // defines the conductance of the p-driver output during periods of modulation
-	TModeReg        = 0x2A << 1,  // defines settings for the internal timer
-	TPrescalerReg   = 0x2B << 1,  // the lower 8 bits of the TPrescaler value. The 4 high bits are in TModeReg.
-	TReloadRegH     = 0x2C << 1,  // defines the 16-bit timer reload value
-	TReloadRegL     = 0x2D << 1,
-	TCntValueRegH   = 0x2E << 1,  // shows the 16-bit timer value
-	TCntValueRegL   = 0x2F << 1,
+	RFCfgReg        = 0x26<<1,  // configures the receiver gain
+	GsNReg          = 0x27<<1,  // selects the conductance of the antenna driver pins TX1 and TX2 for modulation
+	CWGsPReg        = 0x28<<1,  // defines the conductance of the p-driver output during periods of no modulation
+	ModGsPReg       = 0x29<<1,  // defines the conductance of the p-driver output during periods of modulation
+	TModeReg        = 0x2A<<1,  // defines settings for the internal timer
+	TPrescalerReg   = 0x2B<<1,  // the lower 8 bits of the TPrescaler value. The 4 high bits are in TModeReg.
+	TReloadRegH     = 0x2C<<1,  // defines the 16-bit timer reload value
+	TReloadRegL     = 0x2D<<1,
+	TCntValueRegH   = 0x2E<<1,  // shows the 16-bit timer value
+	TCntValueRegL   = 0x2F<<1,
 
 	// Page 3:Test Registers
 	//                0x30        // reserved for future use
-	TestSel1Reg     = 0x31 << 1,  // general test signal configuration
-	TestSel2Reg     = 0x32 << 1,  // general test signal configuration
-	TestPinEnReg    = 0x33 << 1,  // enables pin output driver on pins D1 to D7
-	TestPinValueReg = 0x34 << 1,  // defines the values for D1 to D7 when it is used as an I/O bus
-	TestBusReg      = 0x35 << 1,  // shows the status of the internal test bus
-	AutoTestReg     = 0x36 << 1,  // controls the digital self test
-	VersionReg      = 0x37 << 1,  // shows the software version
-	AnalogTestReg   = 0x38 << 1,  // controls the pins AUX1 and AUX2
-	TestDAC1Reg     = 0x39 << 1,  // defines the test value for TestDAC1
-	TestDAC2Reg     = 0x3A << 1,  // defines the test value for TestDAC2
-	TestADCReg      = 0x3B << 1   // shows the value of ADC I and Q channels
+	TestSel1Reg     = 0x31<<1,  // general test signal configuration
+	TestSel2Reg     = 0x32<<1,  // general test signal configuration
+	TestPinEnReg    = 0x33<<1,  // enables pin output driver on pins D1 to D7
+	TestPinValueReg = 0x34<<1,  // defines the values for D1 to D7 when it is used as an I/O bus
+	TestBusReg      = 0x35<<1,  // shows the status of the internal test bus
+	AutoTestReg     = 0x36<<1,  // controls the digital self test
+	VersionReg      = 0x37<<1,  // shows the software version
+	AnalogTestReg   = 0x38<<1,  // controls the pins AUX1 and AUX2
+	TestDAC1Reg     = 0x39<<1,  // defines the test value for TestDAC1
+	TestDAC2Reg     = 0x3A<<1,  // defines the test value for TestDAC2
+	TestADCReg      = 0x3B<<1,   // shows the value of ADC I and Q channels
 	//                0x3C        // reserved for production tests
 	//                0x3D        // reserved for production tests
 	//                0x3E        // reserved for production tests
 	//                0x3F        // reserved for production tests
+
+	RxGain_max				= 0x07 << 4
 };
 
 	// MFRC522 commands Described in chapter 10 of the datasheet.
@@ -248,17 +265,7 @@ enum PICC_Type {
 	PICC_TYPE_NOT_COMPLETE = 255 // SAK indicates UID is not complete.
 };
 
-enum StatusCode {
-	STATUS_OK              = 1,  // Success
-	STATUS_ERROR           = 2,  // Error in communication
-	STATUS_COLLISION       = 3,  // Collision detected
-	STATUS_TIMEOUT         = 4,  // Timeout in communication.
-	STATUS_NO_ROOM         = 5,  // A buffer is not big enough.
-	STATUS_INTERNAL_ERROR  = 6,  // Internal error in the code. Should not happen ;-)
-	STATUS_INVALID         = 7,  // Invalid argument.
-	STATUS_CRC_WRONG       = 8,  // The CRC_A does not match
-	STATUS_MIFARE_NACK     = 9   // A MIFARE PICC responded with NAK.
-};
+
 	static constexpr size_t MAX_ERR = 10;
 	static const constexpr char* const _TypeNamePICC[MAX_ERR] =
 	{
@@ -290,7 +297,7 @@ enum StatusCode {
 		"The CRC_A does not match",
 		"A MIFARE PICC responded with NAK"
 	};
-
+	static constexpr int FIFO_SIZE = 64; 
 	HardwareSerial *serial;
 	int read_reg(uint8_t *b);
 	int write_bytes_reg(const uint8_t *src, const size_t size);

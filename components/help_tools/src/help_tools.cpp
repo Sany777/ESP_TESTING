@@ -1,7 +1,7 @@
 #include "help_tools.hpp"
 
 gpio_num_t LED_PIN = GPIO_NUM_4;
-gpio_num_t RFID_RST_PIN = GPIO_NUM_12;
+gpio_num_t RFID_RST_PIN = GPIO_NUM_2;
 
 AutoLock::AutoLock(SemaphoreHandle_t &semaphore){
     this->_semaphore = semaphore;

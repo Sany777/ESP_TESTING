@@ -93,7 +93,9 @@
     "limits.h": "c",
     "uart.h": "c",
     "uart_periph.h": "c",
-    "uart_private.h": "c"
+    "uart_private.h": "c",
+    "stdbool.h": "c",
+    "string.h": "c"
   },
   "idf.flashType": "UART",
   "C_Cpp.errorSquiggles": "disabled",

@@ -1,0 +1,71 @@
+#include <MFRC522.hpp>
+
+
+
+#define digitalWrite(pin, state) 
+#define delayMicroseconds(_ms)	vTaskDelay((_ms)/Port)
+
+MFRC522_UART::MFRC522_UART(HardwareSerial &serial, uint8_t resetPin)
+	: _resetPowerDownPin(resetPin), _serialPort(serial) {}
+
+bool MFRC522_UART::PCD_Init() {
+	_serialPort.begin(9600);
+
+	if (_resetPowerDownPin != UNUSED_PIN) {
+
+	digitalWrite(_resetPowerDownPin, LOW);
+	delayMicroseconds(2);
+	digitalWrite(_resetPowerDownPin, HIGH);
+	delay(50);
+	return true;
+	}
+	return false;
+}
+
+void MFRC522_UART::PCD_WriteRegister(MFRC522::PCD_Register reg, uint8_t value) {
+	// Mask used for writing to registers. See section "8.1.3.3 UART framing" from datasheet.
+	_serialPort.write(0x7F & reg);
+	// Waits for confirmation
+  	while (!_serialPort.available());
+	// Removes confirmation uint8_t from input buffer
+  	_serialPort.read();
+	// Writes data
+	_serialPort.write(value);
+}
+
+void MFRC522_UART::PCD_WriteRegister(
+  	MFRC522::PCD_Register reg, uint8_t count, uint8_t *values) {
+
+	for (uint8_t index = 0; index < count; ++index)
+    	this->PCD_WriteRegister(reg, values[index]);
+}
+
+uint8_t MFRC522_UART::PCD_ReadRegister(MFRC522::PCD_Register reg) {
+	// Mask used for reading from registers. See section "8.1.3.3 UART framing" from datasheet.
+	_serialPort.write(0x80 | reg);
+	// Waits for input
+	while (!_serialPort.available());
+	// Reads data
+	uint8_t value = _serialPort.read();
+	return value;
+}
+
+void MFRC522_UART::PCD_ReadRegister(
+  	MFRC522::PCD_Register reg, uint8_t count, uint8_t *values, uint8_t rxAlign) {
+
+	uint8_t index = 0;
+	// Only update bit positions rxAlign..7 in values[0]
+	if (rxAlign) {
+		uint8_t mask = 0xFF << rxAlign;
+		uint8_t value = this->PCD_ReadRegister(reg);
+		// Apply mask to both current value of values[0] and the new data in value.
+		values[0] = (values[0] & ~mask) | (value & mask);
+		++index;
+	}
+
+	while (index < count) {
+		// Keeps reading from the same address
+		values[index] = this->PCD_ReadRegister(reg);
+		++index;
+	}
+}

@@ -19,7 +19,7 @@ void app_main(void)
     // UNITY_END();
 
 
-    print_banner("Running tests without [pytest] tag");
+    print_banner("Running tests without [pytest][hardware] tag");
     UNITY_BEGIN();
     unity_run_tests_by_tag("[pytest]", true);
     UNITY_END();
