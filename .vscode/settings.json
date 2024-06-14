@@ -95,7 +95,8 @@
     "uart_periph.h": "c",
     "uart_private.h": "c",
     "stdbool.h": "c",
-    "string.h": "c"
+    "string.h": "c",
+    "esp_camera.h": "c"
   },
   "idf.flashType": "UART",
   "C_Cpp.errorSquiggles": "disabled",

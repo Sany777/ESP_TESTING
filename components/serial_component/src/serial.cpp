@@ -96,13 +96,9 @@ int EspUart::begin(int baud,
     };
     this->_UART_NUM = port;
     if(uart_is_driver_installed(port)){
+        uart_wait_tx_done(port, 5000);
         uart_driver_delete(port);
     }
-    // if(uart_is_driver_installed(port) ||
-    //     (port == EspUart::MONITOR_UART && CONFIG_LOG_DEFAULT_LEVEL>0)){
-    //     uart_flush(port);
-    //     return fix_serial_monitor_param(port, baud);
-    // }
     if(uart_param_config(port, &uart_config) != ESP_OK
             || uart_set_pin(port, 
                             txPin, 

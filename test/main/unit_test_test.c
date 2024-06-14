@@ -7,21 +7,10 @@ static void print_banner(const char* text);
 
 void app_main(void)
 {
-    /* These are the different ways of running registered tests.
-     * In practice, only one of them is usually needed.
-     *
-     * UNITY_BEGIN() and UNITY_END() calls tell Unity to print a summary
-     * (number of tests executed/failed/ignored) of tests executed between these calls.
-     */
-    // print_banner("Executing one test by its name");
-    // UNITY_BEGIN();
-    // unity_run_test_by_name("Mean of an empty array is zero");
-    // UNITY_END();
 
-
-    print_banner("Running tests without [pytest][hardware] tag");
+    print_banner("Running tests without [ignore] tag");
     UNITY_BEGIN();
-    unity_run_tests_by_tag("[pytest]", true);
+    unity_run_tests_by_tag("[ignore]", true);
     UNITY_END();
 
     // print_banner("Running all the registered tests");

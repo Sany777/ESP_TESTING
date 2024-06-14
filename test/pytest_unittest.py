@@ -1,8 +1,10 @@
 import pytest
-from pytest_embedded import Dut
+from pytest_embedded import Dut, log
+
 
 from time import sleep
 
+from pytest_embedded_serial import Serial
 
 @pytest.mark.esp32
 @pytest.mark.supported_targets
@@ -11,16 +13,25 @@ from time import sleep
 def test_basic_test(dut: Dut) -> None:
     
     dut.expect_unity_test_output(timeout = 2000)
-
-    dut.write('[pytest]')
-
+    dut.expect('Press ENTER to see the list of tests')
+    dut.write('[ignore]')
     dut.expect('serial monitor settings was restored')
-    
-    dut.expect('esp:send')
-    dut.expect('esp:data')
+
+    dut.expect('esp:write text')
+    dut.expect('esp:text')
+
+    dut.expect('esp:write bin data')
+    dut.expect('013')
+
+    dut.expect('esp:write a byte')
+    dut.expect('0')
 
     test_data = b'pytest:data'
     dut.expect('esp:expect data')
     dut.write(test_data)
     dut.expect('esp:ok')
+
+
+    
+
 
