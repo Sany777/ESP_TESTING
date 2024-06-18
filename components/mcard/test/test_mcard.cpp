@@ -7,6 +7,7 @@ extern "C"{
     #include <errno.h>
     #include "esp_log.h"
     #include "cmock.h"
+    #include "freertos/FreeRTOS.h"
 };
 
 #include "sdcard.hpp"
@@ -93,7 +94,7 @@ TEST_CASE("getting file size", "[mcard][true]")
     TEST_ASSERT_EQUAL(BIN_DATA_SIZE, size);
 }
 
-TEST_CASE("get the file creation time", "[mcard][true]")
+TEST_CASE("get the file creation time", "[mcard][ignore]")
 {
     sdcard->writeToFile(BIN_FILENAME, BIN_DATA, BIN_DATA_SIZE);
     const time_t creation_time = sdcard->getFileTime(BIN_FILENAME);

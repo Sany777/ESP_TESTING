@@ -10,10 +10,11 @@ from pytest_embedded_serial import Serial
 @pytest.mark.supported_targets
 @pytest.mark.generic
 @pytest.mark.unit
-def test_basic_test(dut: Dut) -> None:
+def test_hardware_test(dut: Dut) -> None:
     
     dut.expect_unity_test_output(timeout = 2000)
-    dut.expect('Press ENTER to see the list of tests')
+
+    dut.run_single_board_case("test restore serial monitor settings")
     dut.write('[ignore]')
     dut.expect('serial monitor settings was restored')
 

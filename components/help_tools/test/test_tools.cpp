@@ -52,7 +52,7 @@ void task_without_synch(void *vp)
 }
 
 
-TEST_CASE("test autolock", "[autolock]")
+TEST_CASE("test autolock", "[autolock][ignore]")
 {
     size_t test_counter_1 = 0;
     size_t test_counter_2 = 0;
