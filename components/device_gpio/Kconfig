@@ -1,0 +1,21 @@
+menu "IO Configuration"
+
+    config BUT_LEFT_PIN
+        int "Pin for UP Button"
+        default 40
+        help
+            Set the GPIO pin number for the UP button.
+
+    config BUT_RIGHT_PIN
+        int "Pin for DOWN Button"
+        default 42
+        help
+            Set the GPIO pin number for the DOWN button.
+
+    config BUT_CENTER_PIN
+        int "Pin for SET Button"
+        default 41
+        help
+            Set the GPIO pin number for the SET button.
+
+endmenu

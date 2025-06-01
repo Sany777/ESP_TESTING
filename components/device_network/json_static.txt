@@ -1,0 +1,150 @@
+
+static esp_err_t json_get_handler(httpd_req_t *req)
+{
+    if (!req || !req->user_ctx) {
+        httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Missing context");
+        return ESP_FAIL;
+    }
+
+    const json_http_handler_t *get_handler = (const json_http_handler_t *)req->user_ctx;
+
+    ESP_LOGI(TAG, "GET request for URI: %s, with %u fields", req->uri, get_handler->field_count);
+
+    char json_buf[JSON_MAX_SIZE] = {0};
+    size_t offset = 0;
+
+    json_buf[offset++] = '{';
+
+    for (size_t i = 0; i < get_handler->field_count; i++) {
+        esp_err_t err = add_field_to_json(
+            json_buf, sizeof(json_buf), &offset,
+            &get_handler->fields[i], i == get_handler->field_count - 1);
+        if (err != ESP_OK) {
+            httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "JSON build error");
+            return err;
+        }
+    }
+
+    if (offset < sizeof(json_buf) - 1) {
+        json_buf[offset++] = '}';
+        json_buf[offset] = '\0';
+    } else {
+        ESP_LOGE(TAG, "Buffer too small");
+        httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, NULL);
+        return ESP_ERR_NO_MEM;
+    }
+
+    httpd_resp_set_type(req, "application/json");
+    httpd_resp_set_status(req, "200 OK");
+    char content_length[16];
+    sprintf(content_length, "%zu", offset);
+    httpd_resp_set_hdr(req, "Content-Length", content_length);
+    return httpd_resp_send(req, json_buf, HTTPD_RESP_USE_STRLEN);
+}
+
+static esp_err_t json_post_handler(httpd_req_t *req)
+{
+    ESP_LOGI(TAG, "POST request for URI: %s", req->uri);
+    const json_http_handler_t *post_handler = (const json_http_handler_t *)req->user_ctx;
+    if (req->content_len == 0) {
+        httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Empty body");
+        return ESP_FAIL;
+    }
+    char net_buf[JSON_MAX_SIZE] = {0}; 
+    if (req->content_len >= sizeof(net_buf)) {
+        httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, NULL);
+        return ESP_FAIL;
+    }
+
+    int len = httpd_req_recv(req, net_buf, req->content_len);
+    if (len <= 0) {
+        httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Failed receive");
+        return ESP_FAIL;
+    }
+    net_buf[len] = '\0';
+
+    char *p = net_buf;
+    while (*p && isspace((unsigned char)*p)) p++;
+    if (*p++ != '{') {
+        httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Invalid JSON");
+        return ESP_FAIL;
+    }
+    
+    char pattern[64];
+    int val;
+    for (size_t i = 0; i < post_handler->field_count; i++) {
+        const json_field_t *field = &post_handler->fields[i];
+        if (!field->ptr || !field->name) {
+            ESP_LOGW(TAG, "Invalid field");
+            continue;
+        }
+
+        switch (field->type) {
+            case JSON_FIELD_INT: 
+            {
+                snprintf(pattern, sizeof(pattern), "\"%s\":%%d", field->name);
+                if (sscanf(net_buf, pattern, &val) == 1) {
+                    *(int *)field->ptr = val;
+                    ESP_LOGI(TAG, "Parsed int: %s=%d", field->name, val);
+                } else {
+                    ESP_LOGW(TAG, "Field %s not found", field->name);
+                }
+                break;
+            }
+
+            case JSON_FIELD_BOOL: 
+            {
+                char val_str[6] = {0};
+                snprintf(pattern, sizeof(pattern), "\"%s\":%%5[^,}\\t\\n ]", field->name);
+                if (sscanf(net_buf, pattern, val_str) == 1) {
+                    if (strcmp(val_str, "true") == 0) {
+                        *(bool *)field->ptr = true;
+                        ESP_LOGI(TAG, "Parsed bool: %s=true", field->name);
+                    } else if (strcmp(val_str, "false") == 0) {
+                        *(bool *)field->ptr = false;
+                        ESP_LOGI(TAG, "Parsed bool: %s=false", field->name);
+                    } else {
+                        ESP_LOGW(TAG, "Invalid bool value for field %s", field->name);
+                    }
+                } else {
+                    ESP_LOGW(TAG, "Field %s not found or invalid bool", field->name);
+                }
+                break;
+            }
+
+            case JSON_FIELD_STR: {
+                char *start = strstr(net_buf, field->name);
+                if (start) {
+                    start = strchr(start, ':');
+                    if (start) {
+                        start++;
+                        while (*start && *start != '"') start++;
+                        if (*start == '"') {
+                            start++;
+                            char *end = strchr(start, '"');
+                            if (end && (size_t)(end - start) < field->max_len) {
+                                size_t str_len = end - start;
+                                strncpy((char *)field->ptr, start, str_len);
+                                ((char *)field->ptr)[str_len] = '\0';
+                                ESP_LOGI(TAG, "Parsed string: %s=\"%s\"", field->name, (char *)field->ptr);
+                            } else {
+                                ESP_LOGW(TAG, "String value too long or unterminated for field %s", field->name);
+                            }
+                        }
+                    }
+                } else {
+                    ESP_LOGW(TAG, "Field %s not found in JSON", field->name);
+                }
+                break;
+            }
+
+            default:
+                ESP_LOGW(TAG, "Unsupported field type: %d", field->type);
+                break;
+        }
+    }
+
+    httpd_resp_set_type(req, "text/plain");
+    httpd_resp_set_status(req, "200 OK");
+    return httpd_resp_sendstr(req, "OK");
+}

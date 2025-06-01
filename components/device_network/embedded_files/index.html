@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Settings</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="style.css">
+  <link rel="icon" href="favicon.ico" sizes="32x32">
+</head>
+<body>
+  <header>
+    <nav>
+      <span id="title">Settings</span>
+      <div class="nav-buttons">
+        <button id="getsettings" onclick=loadData()>Get settings</button>
+        <button id="exit" onclick=exit()>Quit</button>
+      </div>
+    </nav>
+  </header>
+  <p id="modal" class="modal hidden"></p>
+  <div id="bar-wraper">
+    <div class="bar" id="bar"></div>
+    <div id="info-bar"></div>
+  </div>
+  <main>
+    <div id="form-root" class="setting_page"></div>
+  </main>
+  <script src="script.js"></script>
+</body>
+</html>
+
